@@ -1,0 +1,5 @@
+source_path=/Users/vasudevarao/RaystratSystems-AI-Engineering-OS
+source_commit=e718eac925c3a642ef520d3e582bc42fbe5eadbf
+snapshot_timestamp=2026-06-04T20:15:43Z
+snapshot_tool=rsync -a --exclude=.git
+note=Frozen copy-snapshot. Immutable per INV-001. ai/ subdir intentionally writable (OS self-test scratch registry).

@@ -1,0 +1,68 @@
+.
+├── INSTALL.md
+├── README.md
+├── ai
+│   ├── engineering-journal.md
+│   ├── recon
+│   │   └── OS_CLI_V0_SURFACE.md
+│   ├── specs
+│   │   └── os-cli-v0.md
+│   └── state_registry.json
+├── claude
+│   ├── agents
+│   │   ├── journal-agent.md
+│   │   └── spec-agent.md
+│   └── hooks
+│       └── docker-build-guard.sh
+├── core-docs
+│   ├── ENGINEERING_OS.md
+│   ├── PROJECT_BOOTSTRAP.md
+│   ├── directive-template.md
+│   ├── execution-loop-controller.md
+│   ├── execution-orchestrator.md
+│   ├── spec-compiler.md
+│   ├── spec-generation.md
+│   ├── spec-to-task-playbook.md
+│   ├── system-spine-playbook.md
+│   ├── task-generator.md
+│   ├── task-graph.md
+│   └── verification-playbook.md
+├── engineering-os-structure.txt
+├── recon
+│   └── os-core-sanitization-recon.md
+├── scripts
+│   ├── compile-spec.sh
+│   ├── execution-supervisor.sh
+│   ├── generate-tasks.sh
+│   ├── invariant-engine.sh
+│   ├── os-adapter-check.sh
+│   ├── os-boot-check.sh
+│   ├── os-intent-entry.sh
+│   ├── os-self-test.sh
+│   ├── raystrat-os
+│   ├── run-full-regression.sh
+│   └── state-manager.sh
+├── specs
+│   └── phases
+│       ├── phase-1.md
+│       ├── phase-backend.md
+│       └── phase-ui.md
+├── tasks
+├── templates
+│   ├── .gitkeep
+│   ├── adapter.config.sh
+│   ├── invariant-registry.md
+│   └── state_registry.json
+├── tests
+│   ├── .gitkeep
+│   ├── 001-os-enforcement-layer.sh
+│   ├── 002-os-state-machine.sh
+│   ├── 003-os-invariant-engine.sh
+│   ├── 004-os-cli-backing-surfaces.sh
+│   ├── 005-os-cli-wrapper.sh
+│   └── run-self-tests.sh
+└── vendor
+    └── engineering-os
+        └── ai
+
+18 directories, 48 files
