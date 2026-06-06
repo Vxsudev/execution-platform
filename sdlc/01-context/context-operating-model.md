@@ -1,13 +1,13 @@
 # L0 Context Operating Model
 
 ## Status
-draft
+approved
 
 ## Layer
 L0 (Context) — governing artifact for the layer
 
 ## Version
-1.0.0 (draft — pending L0 review per Process Constitution §6)
+1.0.0 (approved by L0 review 2026-06-05 per Process Constitution §6)
 
 ## Upstream Authority
 - `sdlc/00-process-constitution/sdlc-architecture-directive.md` (Process Constitution v1.0.0)
