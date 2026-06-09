@@ -1,10 +1,26 @@
-// Frontend SPA: login, list rows, create/edit rows. Consumes the backend API.
+// Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
-const state = { user: null, fields: [], types: [], statuses: [], rows: [], editing: null };
+const state = {
+  user: null, fields: [], types: [], statuses: [], rows: [], editing: null,
+  search: '', filters: { status: '', track: '', type: '' },
+};
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
-// Columns shown in the list view (the full set is editable in the form).
-const LIST_COLS = ['type', 'title', 'owner', 'track', 'status', 'target_end_date'];
+
+// Table columns: 13 Sheet-2 contract columns in workbook order, then a compact
+// Type tag column, then Actions (rendered separately).
+const LIST_COLS = [
+  'owner', 'track', 'title', 'function_area', 'parent_item', 'hypothesis',
+  'design', 'success_criteria', 'target_end_date', 'dependencies', 'outcome',
+  'next_action', 'status', 'type',
+];
+// Long-text cells that get truncated with an ellipsis + full-text tooltip.
+const TRUNC_COLS = new Set(['hypothesis', 'design', 'success_criteria', 'outcome']);
+// Columns the search box scans (case-insensitive substring).
+const SEARCH_COLS = [
+  'title', 'owner', 'track', 'function_area', 'parent_item', 'hypothesis',
+  'design', 'success_criteria', 'dependencies', 'outcome', 'next_action',
+];
 
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, {
@@ -47,7 +63,7 @@ function renderLogin(errMsg) {
   $app.innerHTML = `
     <div class="login-wrap">
       <div class="login-card">
-        <h1>Execution Table</h1>
+        <h1>astraX — Team Experiment Summary</h1>
         <p>Sign in to view and edit rows.</p>
         <label>Username</label>
         <input id="u" autocomplete="username" />
@@ -71,34 +87,84 @@ function renderLogin(errMsg) {
 }
 
 // ---------- app ----------
+function colLabel(key) { return (state.fields.find((f) => f.key === key) || {}).label || key; }
+
+function distinctTracks() {
+  return [...new Set(state.rows.map((r) => r.track).filter(Boolean))].sort();
+}
+
+function optionTags(values, current, labelFn) {
+  return ['<option value="">All</option>'].concat(values.map((v) =>
+    `<option value="${esc(v)}" ${current === v ? 'selected' : ''}>${esc(labelFn ? labelFn(v) : v)}</option>`
+  )).join('');
+}
+
 function renderApp() {
   $app.innerHTML = `
     <div class="topbar">
-      <h1>Execution Table</h1>
-      <span class="who">${state.rows.length} row(s)</span>
+      <h1>astraX — Team Experiment Summary</h1>
+      <span class="who" id="rowCount"></span>
       <div class="spacer"></div>
       <span class="who">Signed in as <strong>${esc(state.user.username)}</strong></span>
       <button class="btn primary" id="newBtn">+ New row</button>
       <button class="btn ghost" id="logoutBtn">Log out</button>
     </div>
+    <div class="controls">
+      <input id="searchInput" class="search" type="text" placeholder="Search…" value="${esc(state.search)}" />
+      <select id="fStatus" title="Filter by status">${optionTags(state.statuses, state.filters.status)}</select>
+      <select id="fTrack" title="Filter by track">${optionTags(distinctTracks(), state.filters.track)}</select>
+      <select id="fType" title="Filter by type">${optionTags(state.types, state.filters.type, (t) => TYPE_LABEL[t] || t)}</select>
+    </div>
     <div class="wrap">
-      <div class="table-scroll">${renderTable()}</div>
+      <div class="table-scroll" id="tableScroll"></div>
     </div>`;
+
   document.getElementById('newBtn').onclick = () => openForm(null);
-  document.getElementById('logoutBtn').onclick = async () => { await api('/logout', { method: 'POST' }); state.user = null; renderLogin(); };
+  document.getElementById('logoutBtn').onclick = async () => {
+    await api('/logout', { method: 'POST' }); state.user = null; renderLogin();
+  };
+  document.getElementById('searchInput').oninput = (e) => { state.search = e.target.value; refreshTable(); };
+  document.getElementById('fStatus').onchange = (e) => { state.filters.status = e.target.value; refreshTable(); };
+  document.getElementById('fTrack').onchange = (e) => { state.filters.track = e.target.value; refreshTable(); };
+  document.getElementById('fType').onchange = (e) => { state.filters.type = e.target.value; refreshTable(); };
+
+  refreshTable();
+}
+
+function filteredRows() {
+  const q = state.search.trim().toLowerCase();
+  const { status, track, type } = state.filters;
+  return state.rows.filter((r) => {
+    if (status && r.status !== status) return false;
+    if (track && r.track !== track) return false;
+    if (type && r.type !== type) return false;
+    if (q) {
+      const hay = SEARCH_COLS.map((k) => r[k] || '').join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function refreshTable() {
+  const rows = filteredRows();
+  document.getElementById('rowCount').textContent = `${rows.length} of ${state.rows.length} rows`;
+  document.getElementById('tableScroll').innerHTML = renderTable(rows);
   bindRowActions();
 }
 
-function colLabel(key) { return (state.fields.find((f) => f.key === key) || {}).label || key; }
-
-function renderTable() {
+function renderTable(rows) {
   if (!state.rows.length) return `<div class="empty">No rows yet. Click <strong>+ New row</strong> to add one.</div>`;
-  const head = LIST_COLS.map((k) => `<th>${esc(colLabel(k))}</th>`).join('') + '<th></th>';
-  const body = state.rows.map((r) => {
+  if (!rows.length) return `<div class="empty">No rows match the current search / filters.</div>`;
+  const head = LIST_COLS.map((k) => `<th>${esc(colLabel(k))}</th>`).join('') + '<th>Actions</th>';
+  const body = rows.map((r) => {
     const cells = LIST_COLS.map((k) => {
       if (k === 'type') return `<td><span class="tag type-${esc(r.type)}">${esc(TYPE_LABEL[r.type] || r.type)}</span></td>`;
       if (k === 'status') return `<td><span class="status s-${esc((r.status || '').replace(/\s/g, '.'))}">${esc(r.status)}</span></td>`;
-      if (k === 'title') return `<td><div class="title">${esc(r.title)}</div></td>`;
+      if (TRUNC_COLS.has(k)) {
+        const v = r[k] || '';
+        return `<td class="trunc" title="${esc(v)}">${esc(v)}</td>`;
+      }
       return `<td>${esc(r[k])}</td>`;
     }).join('');
     return `<tr>${cells}<td><div class="row-actions">
@@ -123,7 +189,11 @@ function bindRowActions() {
 // ---------- create / edit form ----------
 function openForm(row) {
   const isEdit = !!row;
-  const val = (k) => (row && row[k] != null ? row[k] : '');
+  const val = (k) => {
+    if (row && row[k] != null) return row[k];
+    if (!isEdit && k === 'status') return 'Not Started'; // new-row default
+    return '';
+  };
   const fieldHtml = state.fields.map((f) => {
     const full = f.input === 'textarea' ? ' full' : '';
     let control;
@@ -136,7 +206,8 @@ function openForm(row) {
     } else {
       control = `<input type="${f.input}" data-k="${f.key}" value="${esc(val(f.key))}" />`;
     }
-    return `<div class="field${full}"><label>${esc(f.label)}${f.required ? ' *' : ''}</label>${control}</div>`;
+    const help = f.help ? `<small class="help">${esc(f.help)}</small>` : '';
+    return `<div class="field${full}"><label>${esc(f.label)}${f.required ? ' *' : ''}</label>${control}${help}</div>`;
   }).join('');
 
   const back = document.createElement('div');
@@ -157,6 +228,14 @@ function openForm(row) {
   back.querySelector('#saveBtn').onclick = async () => {
     const payload = {};
     back.querySelectorAll('[data-k]').forEach((el) => { payload[el.dataset.k] = el.value; });
+    // Client-side required-field enforcement (title, owner, track, status).
+    const missing = state.fields
+      .filter((f) => f.required && !String(payload[f.key] || '').trim())
+      .map((f) => f.label);
+    if (missing.length) {
+      back.querySelector('#formErr').textContent = 'Required: ' + missing.join(', ');
+      return;
+    }
     try {
       if (isEdit) await api('/rows/' + row.id, { method: 'PUT', body: payload });
       else await api('/rows', { method: 'POST', body: payload });

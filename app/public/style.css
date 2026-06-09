@@ -20,27 +20,40 @@ input,select,textarea{font:inherit}
 .hint{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
 
 /* app shell */
-.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-.topbar h1{font-size:16px;margin:0;font-weight:600}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.topbar h1{font-size:15px;margin:0;font-weight:600}
 .topbar .spacer{flex:1}
 .topbar .who{color:var(--muted);font-size:13px}
-.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.btn{padding:7px 13px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
 .btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:600}
 .btn.ghost{background:transparent}
 .btn.danger{color:var(--bad)}
-.wrap{padding:20px}
 
-/* table */
-.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-table{border-collapse:collapse;width:100%;min-width:760px}
-th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
-th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:var(--panel2)}
-td .title{white-space:normal;max-width:360px}
+/* controls bar */
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.controls .search{flex:0 0 280px;max-width:100%;padding:7px 10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.controls select{padding:7px 10px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--text)}
+
+.wrap{padding:12px 16px}
+
+/* dense Excel-like grid */
+.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  max-height:calc(100vh - 170px)}
+table{border-collapse:collapse;width:100%;min-width:1700px;font-size:12.5px}
+th,td{text-align:left;padding:4px 8px;height:30px;vertical-align:middle;white-space:nowrap;
+  border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+th:last-child,td:last-child{border-right:0}
 tr:last-child td{border-bottom:0}
+th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;
+  position:sticky;top:0;background:var(--panel2);z-index:2}
+td.trunc{max-width:260px;overflow:hidden;text-overflow:ellipsis}
 tr:hover td{background:var(--panel2)}
 .empty{padding:40px;text-align:center;color:var(--muted)}
 
-.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line)}
+.tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:600;border:1px solid var(--line)}
 .tag.type-experiment{color:#c4b5fd}
 .tag.type-work_item{color:#7dd3fc}
 .tag.type-task{color:#fcd34d}
@@ -52,17 +65,18 @@ tr:hover td{background:var(--panel2)}
 .status.s-Not.Started{color:var(--muted)}
 
 .row-actions{display:flex;gap:6px}
-.icon-btn{padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12px}
+.icon-btn{padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:11.5px}
 
 /* modal */
 .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:34px 16px;overflow:auto}
-.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:560px;max-width:100%;padding:22px}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:600px;max-width:100%;padding:22px}
 .modal h2{margin:0 0 16px;font-size:16px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
 .field{display:flex;flex-direction:column;gap:4px}
 .field.full{grid-column:1 / -1}
 .field label{color:var(--muted);font-size:12px}
 .field input,.field select,.field textarea{padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);width:100%}
 .field textarea{min-height:62px;resize:vertical}
+.field .help{color:var(--muted);font-size:11px;line-height:1.4}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
 .error{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}

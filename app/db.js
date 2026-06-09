@@ -15,22 +15,23 @@ try {
 const ROW_TYPES = ['experiment', 'work_item', 'task'];
 const STATUSES = ['Not Started', 'In Progress', 'Complete', 'Blocked', 'Inconclusive'];
 
-// field.key === DB column name. Order === display/form order.
+// field.key === DB column name. Order === display/form order (Sheet 2 contract,
+// `type` discriminator kept last). `help` text is drawn from Sheet 3 guidance.
 const ROW_FIELDS = [
-  { key: 'type',            label: 'Type',                    input: 'select',   options: ROW_TYPES },
-  { key: 'title',           label: 'Title',                   input: 'text',     required: true },
-  { key: 'owner',           label: 'Owner',                   input: 'text' },
-  { key: 'track',           label: 'Track',                   input: 'text' },
+  { key: 'owner',           label: 'Owner',                   input: 'text',     required: true,  help: 'Who owns this experiment.' },
+  { key: 'track',           label: 'Track',                   input: 'text',     required: true,  help: 'Select from T1 Device through T6 Sales. Links to the Jun–Nov roadmap.' },
+  { key: 'title',           label: 'Experiment Title',        input: 'text',     required: true,  help: 'Short scannable name used in standups. Keep each atomic experiment under ~2 weeks.' },
   { key: 'function_area',   label: 'Function',                input: 'text' },
   { key: 'parent_item',     label: 'Parent Item',             input: 'text' },
-  { key: 'hypothesis',      label: 'Description / Hypothesis', input: 'textarea' },
-  { key: 'design',          label: 'Experiment Design',       input: 'textarea' },
-  { key: 'success_criteria',label: 'Success Criteria',        input: 'textarea' },
-  { key: 'target_end_date', label: 'Target End Date',         input: 'date' },
-  { key: 'dependencies',    label: 'Dependencies',            input: 'text' },
-  { key: 'outcome',         label: 'Outcome / Finding',       input: 'textarea' },
-  { key: 'next_action',     label: 'Next Action',             input: 'text' },
-  { key: 'status',          label: 'Status',                  input: 'select',   options: STATUSES },
+  { key: 'hypothesis',      label: 'Description / Hypothesis', input: 'textarea', help: "Write as: 'If we do X, then Y will happen, because Z.' Be specific." },
+  { key: 'design',          label: 'Experiment Design',       input: 'textarea', help: 'How will you run it? Materials/samples, steps, number of runs, measurement method.' },
+  { key: 'success_criteria',label: 'Success Criteria',        input: 'textarea', help: "Write BEFORE you start. What does 'pass' look like? Must be measurable." },
+  { key: 'target_end_date', label: 'Target End Date',         input: 'date',     help: 'Pick a realistic date. If it slips, update it and note why in Dependencies.' },
+  { key: 'dependencies',    label: 'Dependencies',            input: 'text',     help: 'What must be true before this can start/finish? Surface blockers during standup.' },
+  { key: 'outcome',         label: 'Outcome / Finding',       input: 'textarea', help: 'Fill in AFTER. State the result in one sentence, then what it means.' },
+  { key: 'next_action',     label: 'Next Action',             input: 'text',     help: 'What does this result trigger? Must be actionable.' },
+  { key: 'status',          label: 'Status',                  input: 'select',   options: STATUSES, required: true, help: 'Not Started → In Progress → Complete / Blocked / Inconclusive.' },
+  { key: 'type',            label: 'Type',                    input: 'select',   options: ROW_TYPES },
 ];
 
 db.exec(`
@@ -73,13 +74,16 @@ if (db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
   ins.run('vasu',  bcrypt.hashSync('vasu123', 10));
 }
 
-// Seed a generic illustrative row to show row shape (not production data).
+// Seed generic illustrative rows to show row shape (not production data).
 if (db.prepare('SELECT COUNT(*) c FROM entries').get().c === 0) {
   const ins = db.prepare(`INSERT INTO entries
-    (type,title,owner,track,function_area,success_criteria,status)
-    VALUES (@type,@title,@owner,@track,@function_area,@success_criteria,@status)`);
-  ins.run({ type: 'experiment', title: 'Sample experiment', owner: 'demo', track: 'T1',
-    function_area: 'Engineering', success_criteria: 'Baseline metric improves', status: 'Not Started' });
+    (type,title,owner,track,function_area,hypothesis,success_criteria,status)
+    VALUES (@type,@title,@owner,@track,@function_area,@hypothesis,@success_criteria,@status)`);
+  ins.run({ type: 'experiment', title: 'Sample experiment', owner: 'demo', track: 'T1 Device',
+    function_area: 'Engineering', hypothesis: 'If we do X then Y because Z.',
+    success_criteria: 'Baseline metric improves', status: 'Not Started' });
+  ins.run({ type: 'work_item', title: 'Sample work item', owner: 'demo', track: 'T2 Cloud',
+    function_area: 'Software', hypothesis: null, success_criteria: null, status: 'In Progress' });
 }
 
 module.exports = { db, ROW_FIELDS, ROW_TYPES, STATUSES };
