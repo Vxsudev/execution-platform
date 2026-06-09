@@ -1,17 +1,22 @@
 # Product Intent Brief — Execution-Platform
 
 ## Status
-draft
+approved (L1 review 2026-06-09)
 
 ## Layer
 L1 Intent
 
 ## Version
-0.1.0
+0.4.0 (OQ-01 resolved via SRC-006/CTX-14; §7, §8, §10 updated; review-eligible — 2026-06-09)
+
+### Prior versions
+- 0.3.0 (SRC-005 promoted to approved Context; §10 retraced to CTX-09…CTX-13 — 2026-06-09)
+- 0.2.0 (v1 scope narrowed per SRC-005, cited as raw source — 2026-06-09)
+- 0.1.0 (initial draft — 2026-06-06)
 
 ## Upstream Authority
 - `sdlc/00-process-constitution/sdlc-architecture-directive.md` (Process Constitution v1.0.0)
-- `sdlc/01-context/context-synthesis-v0.md` (CTX-SYN-001, approved 2026-06-05)
+- `sdlc/01-context/context-synthesis-v0.md` (CTX-SYN-001 v0.3.0, approved 2026-06-09)
 - `sdlc/01-context/glossary-seed.md` (approved 2026-06-05)
 - `sdlc/02-intent/l1-intent-recon.md` (approved 2026-06-06)
 
@@ -28,10 +33,17 @@ L1 Intent
 |---|---|
 | Status | draft |
 | Layer | L1 Intent |
-| Version | 0.1.0 |
+| Version | 0.4.0 |
 | Created | 2026-06-06 |
 
 ---
+
+> **v1 scope notice (2026-06-09).** The vision described in Sections 2–7 is the **full
+> product direction**. As of CTX-09 (2026-06-07), the founder has narrowed the **v1
+> build scope** to a *simple controlled table editor* for experiment/work-item/task
+> rows. **Section 10 is authoritative for what v1 is.** Sections 2–7 remain valid as
+> direction but are **not** the v1 build scope. `execution-platform` is a **separate
+> application** from NDT-SaaS (CTX-11; §10.2).
 
 ## 2. Product Intent Summary
 
@@ -144,31 +156,63 @@ The following are explicitly out of scope for this Product Intent Brief. They ar
 
 ## 7. Open Questions Blocking Approval
 
-This Product Intent Brief may be drafted but **may not enter review** until the following open questions are resolved via new primary source capture. Resolving them requires a stakeholder session that generates new Source Materials (new SRC IDs in the Source Intake Register). Inference and assertion are not sufficient.
+**All formal blockers resolved as of 2026-06-09.** This Product Intent Brief may now
+enter `review`. The open questions that previously blocked approval (OQ-01, OQ-03,
+OQ-06) are all resolved; see status update below and resolved subsections.
 
-### OQ-01 — Track placement of the accountability app
+**Status update (2026-06-09):**
+- **OQ-03 (escalation meaning) — RESOLVED.** Escalation-to-Vijay is **not** a modeled
+  product pathway; it is removed from product scope (CTX-10; §10.3 below).
+- **OQ-06 (task support vs prevention) — RESOLVED.** v1 **supports** creating and
+  editing tasks (and work-items) as first-class rows sharing columns with experiments
+  (CTX-09, CTX-13; §10.3 below). This is the *permissive* resolution — tasks are
+  supported, not prevented.
+- **OQ-01 (track placement of the app) — RESOLVED (2026-06-09).** SRC-006 (operator
+  confirmation, 2026-06-09) establishes that execution-platform is classified under the
+  **OPS Cloud track** (CTX-14; CTX-SYN-001 v0.3.0). All formal blockers are now
+  cleared. This Product Intent Brief **may enter review**.
+- **Process-derived blocker CLEARED.** SRC-005 has been promoted into approved Context
+  (CTX-SYN-001 v0.2.0, CTX-09…CTX-13). This brief now cites CTX IDs as upstream
+  authority, not raw source material. The process dependency is resolved.
 
-**Question:** Was T7 (internal tooling track) formally adopted, or does the accountability app live inside a sub-track of T2 or T3, or is it considered organizational infrastructure outside the track system altogether?
+### OQ-01 — Track placement of the accountability app — RESOLVED (2026-06-09)
 
-**Why this blocks approval:** The Product Intent Brief cannot state the product's own place in the execution system without knowing whether it belongs to a track, a sub-track, or exists outside that structure. Any directional statement that implies a placement would assert beyond approved evidence.
+**Resolution (CTX-14; SRC-006, 2026-06-09):** execution-platform is classified under
+the **OPS Cloud track** within astraX's track taxonomy for product-intent purposes.
+This resolves the track placement classification question.
 
-**What this requires:** A new primary stakeholder capture (new SRC ID) recording Vijay's decision on track placement.
+**Interpretation boundary (preserved from SRC-006 §2):** This is a product-organization
+classification, not an architectural decision. It does not override ADR-000's
+separate-app boundary (CTX-11) or imply any NDT-SaaS reuse, shared architecture,
+shared deployment, or shared access-control implementation.
 
-### OQ-03 — Meaning of "Escalate to Vijay" as a next action
+**Original question (retained for trace):** Was T7 (internal tooling track) formally
+adopted, or does the accountability app live inside a sub-track of T2 or T3, or is it
+considered organizational infrastructure outside the track system altogether?
 
-**Question:** Does "Escalate to Vijay" describe a general escalation protocol — Vijay as the universal escalation terminal for any blocked or unresolved next action — or was it specific to the cited example? Who else, if anyone, is a valid escalation target?
+### OQ-03 — Meaning of "Escalate to Vijay" as a next action — RESOLVED (v1)
 
-**Why this blocks approval:** The Product Intent Brief describes the product as a management-execution tool. The escalation model is part of the accountability framing — knowing whether Vijay is the universal authority or one of several escalation targets shapes what the product must support. Asserting either without evidence would originate a concept absent from approved sources.
+**Resolution (CTX-10; SRC-005, 2026-06-07):** The escalation model is **not modeled** in
+the product. Escalation-to-Vijay is explicitly out of v1 scope and must not be built as a
+product pathway. The question of escalation *semantics* therefore no
+longer blocks v1: the product does not implement escalation at all. (Should escalation
+re-enter scope in a future version, a fresh primary capture of the escalation model
+would be required at that time.)
 
-**What this requires:** A new primary stakeholder capture recording the escalation model.
+**Original question (retained for trace):** Does "Escalate to Vijay" describe a general escalation protocol — Vijay as the universal escalation terminal for any blocked or unresolved next action — or was it specific to the cited example? Who else, if anyone, is a valid escalation target?
 
-### OQ-06 — Task support: first-class concept vs. leakage prevention
+### OQ-06 — Task support: first-class concept vs. leakage prevention — RESOLVED (v1)
 
-**Question:** Should execution-platform support tasks (hypothesis-less work items) as a distinct, intentional first-class concept — or is the product's intent to permit only framed experiments and prevent task-shaped entries entirely?
+**Resolution (CTX-09, CTX-13; SRC-005, 2026-06-07):** v1 **supports** tasks as
+first-class rows. v1 lets users create and edit experiments, work-items, and tasks, all
+sharing the same columns. This is the *permissive* resolution: tasks are a supported v1
+work type, not prevented. **Caveat:** the **mandatory-field policy** (which columns, if
+any, are required) is **unresolved** [CTX-SYN-001 §4 item 9] — so the *degree* of discipline enforced
+on a row is still open and is a PRD/L2-level question, not a Product-Intent blocker.
+Note this resolution supersedes the discipline-enforcement framing of G-02 for v1: v1
+prioritizes a simple shared-column editor over active discipline enforcement.
 
-**Why this blocks approval:** This is a load-bearing intent decision. G-02 (enforce experiment discipline) and the entire framing of P-02 (leakage as a problem) depend on whether the product's stance is permissive (tasks are valid, tracked separately) or restrictive (tasks are forbidden in this system). The two positions produce fundamentally different product intents, and neither can be asserted from approved L0 evidence alone.
-
-**What this requires:** A new primary stakeholder capture recording Vijay's position on task support.
+**Original question (retained for trace):** Should execution-platform support tasks (hypothesis-less work items) as a distinct, intentional first-class concept — or is the product's intent to permit only framed experiments and prevent task-shaped entries entirely?
 
 ---
 
@@ -176,7 +220,7 @@ This Product Intent Brief may be drafted but **may not enter review** until the 
 
 The following questions must be asked in a stakeholder session and captured as a new primary Source Material (new SRC ID). They are stated as questions only — they are not answered here.
 
-1. **Track placement:** Should execution-platform / the accountability app live as a T7 internal tooling track, inside a sub-track of an existing track (e.g., T2 or T3), or does it exist outside the track system as organizational infrastructure? [Resolves OQ-01]
+1. **Track placement — RESOLVED (SRC-006, 2026-06-09):** execution-platform is classified under the OPS Cloud track (CTX-14). No longer requires stakeholder capture. [OQ-01 resolved]
 
 2. **Task support:** Should the product support tracking of tasks (hypothesis-less work items) as a distinct, first-class work type — or should the system enforce that only framed experiments may be entered, treating task-shaped entries as leakage to be prevented? [Resolves OQ-06]
 
@@ -199,3 +243,71 @@ This Product Intent Brief may move from `draft` to `approved` when all of the fo
 - [ ] All upstream authority artifacts (Process Constitution, CTX-SYN-001, Glossary Seed, L1 Intent Recon) are `approved` at review time.
 - [ ] The artifact declares `Status`, `Layer`, `Version`, `Upstream Authority`, and `Downstream Consumers` in conformance with Constitution §7.
 - [ ] Review is logged per Constitution §6 (`draft` → `review` → `approved`); no bootstrap exception is claimed.
+
+---
+
+## 10. v1 Scope (authoritative — per CTX-09…CTX-13, approved 2026-06-09)
+
+This section is **authoritative for what v1 is**. Where it narrows the broader direction
+in Sections 2–7, this section governs the v1 build. All claims below are grounded in
+**approved Context** (CTX-SYN-001 v0.2.0, CTX-09…CTX-13).
+
+### 10.1 What v1 is
+
+- **v1 is a simple controlled table editor.** [CTX-09]
+- **Core v1 capability:** create and edit **experiment / work-item / task** rows. [CTX-09]
+- **Experiments, work-items, and tasks share the same columns** in v1. [CTX-13]
+- **Mandatory-field policy is unresolved** — which columns (if any) are required is not
+  yet decided; this is a PRD/L2 question, not a v1-intent blocker. [CTX-13; CTX-SYN-001
+  §4 item 9]
+
+### 10.2 Separate-application boundary
+
+- `execution-platform` is a **completely separate application** from the existing
+  **NDT-SaaS** cloud platform and has nothing to do with it unless explicitly stated in a
+  later recorded direction. [CTX-11]
+- The phrase "access control like we already have" / "OPS Cloud" **does not** authorize
+  importing, reusing, or depending on NDT-SaaS architecture, auth, data model, or
+  access-control implementation. [CTX-11, CTX-12]
+- **Access control for v1** means a *similar, simple access-control pattern* for this
+  separate application; the **exact access-control design is unresolved** and deferred.
+  [CTX-12; CTX-SYN-001 §4 item 10]
+- The stakeholder follow-up "Yes" to an either/or question was **ambiguous on its face**
+  and is **not** treated as authorizing NDT-SaaS reuse; the operator correction is the
+  disambiguating authority. [CTX-12]
+
+### 10.3 Explicitly out of v1 scope
+
+- **No escalation-to-Vijay workflow** — escalation is not a modeled product pathway.
+  [CTX-10] (Resolves OQ-03, §7.)
+- **No approval / acceptance workflow** — consistent with §6 non-goals; CON-002 /
+  OQ-02 remain open and unmodeled. [CTX-SYN-001 §4 items 1–2]
+- **No dashboard-heavy v1** — the management-execution dashboard (D-01, D-02, D-07)
+  is future direction, not v1 build scope. [CTX-09; CTX-SYN-001 §4]
+- **No operations-agent functionality in v1** — agents (D-07) are future direction.
+  [CTX-09; CTX-SYN-001 §4]
+- **No NDT-SaaS dependency** of any kind. [CTX-11]
+
+### 10.4 v1 open items
+
+- **OQ-01 (track placement of the app) — RESOLVED (CTX-14; SRC-006, 2026-06-09).**
+  execution-platform is classified under the OPS Cloud track. Classification does not
+  affect the separate-app boundary (CTX-11).
+- **Mandatory-field policy** unresolved [CTX-13] — defer to PRD.
+- **Exact access-control design** unresolved [CTX-12] — defer to PRD/L3.
+- **Experiment vs work-item vs task distinction** beyond shared columns unresolved —
+  defer to L2 Behavior / Domain Model [CTX-SYN-001 §4 item 11].
+
+### 10.5 v1 review-readiness verdict
+
+**This Product Intent Brief is `draft` and may now enter `review`.** All formal
+blockers are cleared as of 2026-06-09:
+
+- **Process-derived blocker:** cleared (SRC-005 promoted to approved Context).
+- **OQ-03 (escalation):** resolved (CTX-10; SRC-005).
+- **OQ-06 (task support):** resolved (CTX-09, CTX-13; SRC-005).
+- **OQ-01 (track placement):** resolved (CTX-14; SRC-006, 2026-06-09).
+
+**To proceed:** a reviewer must conduct the §9 acceptance criteria check, log the
+review per Constitution §6, and move status from `draft` → `review` → `approved`.
+No additional stakeholder capture is required before review.

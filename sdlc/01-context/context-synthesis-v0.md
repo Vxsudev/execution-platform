@@ -1,13 +1,17 @@
 # L0 Context Synthesis v0 — Execution-Platform
 
 ## Status
-approved (L0 review 2026-06-05)
+approved (L0 review 2026-06-05; revised and re-approved 2026-06-09 — CTX-09…CTX-13 added per SRC-005 promotion; revised and re-approved 2026-06-09 — CTX-14 added per SRC-006 OQ-01 resolution)
 
 ## Layer
 L0 Context
 
 ## Version
-0.1.0
+0.3.0 (CTX-14 added per SRC-006 OQ-01 resolution — 2026-06-09)
+
+### Prior versions
+- 0.2.0 (CTX-09…CTX-13 added per SRC-005 promotion — 2026-06-09)
+- 0.1.0 (CTX-01…CTX-08; initial synthesis — 2026-06-05)
 
 ## Context ID
 CTX-SYN-001
@@ -15,7 +19,7 @@ CTX-SYN-001
 ## Upstream Authority
 - `sdlc/00-process-constitution/sdlc-architecture-directive.md` (Process Constitution)
 - `sdlc/01-context/context-operating-model.md` (Context Operating Model)
-- `sdlc/01-context/source-intake-register.md` (Source Intake Register)
+- `sdlc/01-context/source-intake-register.md` (Source Intake Register v0.4.0)
 - `sdlc/01-context/research/l0-research-pass-1.md` (L0 Research Pass 1, RES-001)
 
 ## Downstream Consumers
@@ -33,8 +37,12 @@ CTX-SYN-001
   source hypotheses and open questions, never as grounding)
 - RES-001 — findings F-01…F-25, contradictions CON-001/CON-002, open questions
   OQ-01…OQ-10
+- SRC-005 — v1 scope-narrowing stakeholder capture (primary, internal; as-of
+  2026-06-07; captured 2026-06-09). Grounds CTX-09…CTX-13.
+- SRC-006 — L1 track placement confirmation (primary, internal; as-of 2026-06-09;
+  captured 2026-06-09). Grounds CTX-14.
 
-Synthesis date: 2026-06-05.
+Synthesis date: 2026-06-05. Revised: 2026-06-09 (CTX-09…CTX-13 added). Revised: 2026-06-09 (CTX-14 added).
 
 ---
 
@@ -183,7 +191,103 @@ source in the chain; all promoted assertions rest on primary internal sources.
 - **CCA-10 — merged into CTX-04** as the taxonomy-instability evidence rather than
   promoted standalone.
 
-**Promoted: 8 assertions (CTX-01…CTX-08).**
+**Promoted (v0.1.0): 8 assertions (CTX-01…CTX-08). Added (v0.2.0): 5 assertions (CTX-09…CTX-13). Added (v0.3.0): 1 assertion (CTX-14). Total: 14.**
+
+---
+
+### CTX-09 — v1 scope: simple controlled table editor for experiment/work-item/task rows
+
+- **Source basis:** SRC-005 §1, §2.3 (Vijay verbatim: "Keep it simple, ability to create
+  and edit experiment… Just a nicer table editor"; operator capture: experiments,
+  work-items, and tasks share the same columns). As-of 2026-06-07.
+- **Strength:** Moderate (single primary source; most recent founder direction; no
+  corroborating source yet).
+- **Allowed downstream usage:** May ground L1 and PRD statements that v1 is a simple
+  table editor supporting create/edit of experiment/work-item/task rows with a shared
+  column set.
+- **Limitations:** The mandatory-field policy (which columns, if any, are required) is
+  **unresolved** (see §4 item 9). The distinction between experiment, work-item, and
+  task beyond sharing columns is **unresolved** and deferred to L2/Domain Model. This
+  assertion establishes the v1 *scope*, not the full product vision (CTX-07 remains the
+  direction; CTX-09 narrows v1).
+
+### CTX-10 — Escalation-to-Vijay is not a modeled v1 product pathway
+
+- **Source basis:** SRC-005 §2.3 (operator capture context; as-of 2026-06-07).
+  The verbatim v1 framing makes no mention of escalation; the operator additionally
+  directs it not be built as a product pathway.
+- **Strength:** Moderate (operator capture authority; not a direct stakeholder quote).
+- **Allowed downstream usage:** May ground L1 and PRD statements that no
+  escalation-to-Vijay feature or workflow is in v1 scope. Resolves OQ-03 for v1
+  (see §5 update).
+- **Limitations:** Applies to v1 only. If escalation re-enters scope in a future version,
+  a fresh primary capture is required. Does not foreclose an escalation feature in
+  future releases.
+
+### CTX-11 — execution-platform is a separate application from NDT-SaaS
+
+- **Source basis:** SRC-005 §2.1 (operator capture context; as-of 2026-06-07).
+  "execution-platform is a completely separate application from the existing NDT-SaaS
+  cloud platform. It has absolutely nothing to do with NDT-SaaS unless explicitly
+  stated otherwise."
+- **Strength:** Moderate (authoritative operator correction; no NDT-SaaS reuse was ever
+  in the verbatim stakeholder framing; the correction guards against a misinterpretation
+  of "access control like we already have").
+- **Allowed downstream usage:** May ground all downstream artifact statements that
+  execution-platform is a separate, standalone application with no NDT-SaaS dependency
+  unless later explicitly directed otherwise.
+- **Limitations:** If a later direction explicitly authorizes an NDT-SaaS dependency,
+  this assertion must be revised via ADR. Does not specify what the application's
+  architecture, hosting, or stack is.
+
+### CTX-12 — Access control means a simple separate-app pattern; exact design unresolved
+
+- **Source basis:** SRC-005 §1, §2.1–§2.2 (as-of 2026-06-07). Vijay's phrase "access
+  control like we already have" is interpreted as *follow a similar simple pattern*,
+  not as reuse of NDT-SaaS auth/access-control. The follow-up "Yes" to an either/or
+  question was **ambiguous on its face**; the operator correction is the disambiguating
+  authority.
+- **Strength:** Moderate (inference from ambiguous stakeholder utterance + operator
+  correction; the interpretation is conservative and guards against over-engineering).
+- **Allowed downstream usage:** May ground L1 NFR and PRD statements that v1 requires
+  *some* access-control pattern for a standalone application; the exact design is an
+  open item for PRD/L3.
+- **Limitations:** The exact access-control design (roles, permissions, auth mechanism)
+  is **unresolved** (see §4 item 10). This assertion establishes the intent constraint
+  only, not the implementation. The ambiguity of the stakeholder response is preserved
+  and noted.
+
+### CTX-13 — Experiments/work-items/tasks share columns in v1; mandatory-field policy unresolved
+
+- **Source basis:** SRC-005 §2.3 (operator capture; as-of 2026-06-07). "Experiments,
+  work-items, and tasks share the same columns in v1." "Mandatory-field policy is
+  unresolved — which columns (if any) are required is not yet decided."
+- **Strength:** Moderate (single primary source; operator capture interpretation of
+  Vijay's "ability to create and edit experiment" + "nicer table editor").
+- **Allowed downstream usage:** May ground PRD and L2 statements that the shared-column
+  approach is the v1 data model intent. May also ground statements that mandatory-field
+  discipline is deferred to the PRD.
+- **Limitations:** The mandatory-field policy is **explicitly unresolved** and must not be
+  asserted by this brief or the PRD without further stakeholder capture. The
+  *relationship* between experiment, work-item, and task (beyond sharing columns) is
+  deferred to L2 Behavior / Domain Model.
+
+### CTX-14 — execution-platform is classified under the OPS Cloud track
+
+- **Source basis:** SRC-006 (operator product classification confirmation; as-of
+  2026-06-09). "execution-platform belongs under the OPS Cloud track."
+- **Strength:** Moderate (primary internal; single operator confirmation; no
+  corroborating stakeholder source).
+- **Allowed downstream usage:** May ground L1 statements that execution-platform's home
+  track within the astraX track taxonomy is the OPS Cloud track for product-intent
+  purposes. Resolves OQ-01 for Product Intent Brief.
+- **Limitations:** This is a **product-organization classification**, not an architectural
+  coupling. It does not override ADR-000's separate-app boundary (CTX-11) or imply any
+  NDT-SaaS reuse, shared architecture, shared deployment, or shared access-control
+  implementation. The exact access-control design (CTX-12) and mandatory-field policy
+  (CTX-13) are unaffected. CON-001 (track taxonomy instability) remains held open —
+  this assertion resolves the home-track question only, not the broader taxonomy
+  structure.
 
 ---
 
@@ -213,6 +317,17 @@ Claims sufficiently supported by primary evidence (citations above):
 9. **Learning-as-attribute + next-action triggering** as current practice [CTX-06;
    F-20, F-21].
 10. **Execution-only status vocabulary** in the artifact of record [CTX-05; F-15].
+11. **v1 = simple controlled table editor** for create/edit of experiment/work-item/task
+    rows [CTX-09; SRC-005].
+12. **execution-platform is a separate application** from NDT-SaaS; no NDT-SaaS
+    dependency or reuse [CTX-11; SRC-005].
+13. **"Access control like we already have" = similar simple pattern** for the separate
+    app; not NDT-SaaS reuse [CTX-12; SRC-005].
+14. **Experiments/work-items/tasks share columns** in v1 [CTX-13; SRC-005].
+15. **Escalation-to-Vijay is not a modeled v1 pathway** [CTX-10; SRC-005].
+16. **execution-platform is classified under the OPS Cloud track** within astraX's
+    track taxonomy for product-intent purposes [CTX-14; SRC-006]. Classification does
+    not override the separate-app boundary (CTX-11).
 
 ---
 
@@ -238,6 +353,14 @@ section is the only valid way to reference these notions until new evidence arri
    evidence exists either way [OQ-09].
 8. *(Additional)* **Dashboard readership beyond Vijay** — team-wide entry is
    evidenced; consumption beyond the founder is not [OQ-10].
+9. *(Added v0.2.0)* **Mandatory-field policy** — which columns in the shared v1 column
+   set (if any) are required is not yet decided [CTX-13; SRC-005 §2.3]. Deferred to PRD.
+10. *(Added v0.2.0)* **Exact access-control design** — the specific roles, permissions,
+    and auth mechanism for the separate application are unresolved [CTX-12; SRC-005 §2.2].
+    Deferred to PRD/L3.
+11. *(Added v0.2.0)* **Experiment vs work-item vs task distinction** beyond sharing
+    columns — the semantic relationship and any behavioral differences are unresolved
+    [CTX-09, CTX-13; SRC-005 §4]. Deferred to L2 Behavior / Domain Model.
 
 ---
 
@@ -247,18 +370,18 @@ From RES-001 §5, classified for L1 planning. None is answered here.
 
 | OQ | Question (abbreviated) | Classification |
 |---|---|---|
-| OQ-01 | Was T7 (internal tooling) adopted, or do sub-tracks absorb the accountability app? | **Useful for L1** — affects track framing but L1 can treat tracks as configurable data (CTX-04) |
+| OQ-01 | Was T7 (internal tooling) adopted, or do sub-tracks absorb the accountability app? | **RESOLVED (v0.3.0, 2026-06-09)** — execution-platform is classified under the OPS Cloud track (CTX-14; SRC-006). No longer a blocker. |
 | OQ-02 | Does any acceptance/approval step exist beyond informal review by Vijay? Who holds it, over what? | **Blocking L1 Intent** — for any intent statement about approval/acceptance; non-blocking for the rest of L1 |
-| OQ-03 | What does "Escalate to Vijay" mean procedurally? | **Useful for L1** — informs accountability framing; not load-bearing yet |
+| OQ-03 | What does "Escalate to Vijay" mean procedurally? | **RESOLVED (v0.2.0, 2026-06-09)** — escalation is not a modeled v1 product pathway (CTX-10; SRC-005 §2.3). No longer a blocker. |
 | OQ-04 | What else does Vijay's (uncaptured) email define besides the hypothesis rule? | **Useful for L1** — capture would strengthen CTX-02/CTX-03 grounding |
 | OQ-05 | What is in the Teams "story" document? | **Deferable to L2** — outreach/strategy material, peripheral to execution-platform intent |
-| OQ-06 | Are the unstatused workbook rows to become experiments, tasks, or be removed? | **Useful for L1** — sharpens the leakage problem statement (CTX-03) |
+| OQ-06 | Are the unstatused workbook rows to become experiments, tasks, or be removed? | **RESOLVED (v0.2.0, 2026-06-09)** — v1 supports tasks as first-class rows sharing columns with experiments (CTX-09, CTX-13; SRC-005 §2.3). Mandatory-field policy (depth of discipline enforcement) deferred to PRD. |
 | OQ-07 | Is `Parent Item` the intended carrier of sub-track structure? | **Deferable to L2** — structural detail beneath intent level |
 | OQ-08 | Must learning be cross-portfolio queryable, or is per-row Outcome sufficient? | **Useful for L1** — distinguishes aspiration from requirement before L1 commits |
 | OQ-09 | What happens after Complete (closure/review/archival)? | **Useful for L1** — lifecycle completeness; currently unevidenced either way |
 | OQ-10 | Who consumes the dashboard besides Vijay? | **Blocking L1 Intent** — for actor/role-catalog work specifically (readership is half the actor model); non-blocking for problem framing |
 
-**Carried forward: 10. Blocking (scoped): OQ-02, OQ-10.**
+**Status (v0.3.0):** OQ-01, OQ-03, and OQ-06 RESOLVED. Remaining open: 7 (OQ-02, OQ-04, OQ-05, OQ-07, OQ-08, OQ-09, OQ-10). **Blocking (scoped): OQ-02, OQ-10.**
 
 ---
 

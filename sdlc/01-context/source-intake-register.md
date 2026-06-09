@@ -7,7 +7,11 @@ approved (L0 review 2026-06-05)
 L0 Context
 
 ## Version
-0.2.0 (CON-001/CON-002 registered; GAP-007 resolved per RES-001 F-25 — 2026-06-05)
+0.4.0 (SRC-006 registered — L1 track placement confirmation; OQ-01 resolved — 2026-06-09)
+
+### Prior versions
+- 0.3.0 (SRC-005 registered — L1 v1 scope-narrowing stakeholder capture; GAP-002 partially addressed re escalation — 2026-06-09)
+- 0.2.0 (CON-001/CON-002 registered; GAP-007 resolved per RES-001 F-25 — 2026-06-05)
 
 ## Upstream Authority
 - `sdlc/00-process-constitution/sdlc-architecture-directive.md`
@@ -53,6 +57,48 @@ provenance and surface inspection at intake, not from deep content analysis.
 | **Sensitivity** | Internal — named individuals; do not redistribute | Internal business data | Internal |
 | **Notes** | Primary named stakeholder: Vijay Chilakapati (founder / top acceptance authority per SRC-003's framing — to be validated against this transcript itself) | The workbook is the [W] source referenced by SRC-003's basis tags | Uses basis tags [W]=SRC-002, [T]=SRC-001, [A]=prior superseded analysis passes (not captured) |
 
+> **ID note:** SRC-004 is intentionally unassigned at this time (no source occupies that
+> ID). The current intake skips to SRC-005 per the capture directive; IDs are never
+> reused, so SRC-004 remains permanently reserved-empty.
+
+### 2.1 SRC-005 — L1 v1 scope-narrowing stakeholder capture
+
+| Field | SRC-005 |
+|---|---|
+| **File path** | `source-materials/product-discussions/l1-product-intent-scope-narrowing-2026-06-07.md` |
+| **Source type** | Stakeholder discussion / v1 scope-narrowing direction (text exchange) + labeled operator capture context |
+| **Classification (COM §3)** | **Primary, internal** (verbatim stakeholder evidence); operator correction section labeled separately as authoritative project direction |
+| **Provenance** | Text exchange with Vijay Chilakapati on 2026-06-07; verbatim quotes and a follow-up clarification preserved; captured into repository 2026-06-09 |
+| **Capturer** | Vasu (vasu@astraanalytical.com) |
+| **Capture date** | 2026-06-09 |
+| **Date / as-of date** | 2026-06-07 (communication date) |
+| **Fidelity** | Verbatim quotes preserved exactly; capture context and operator correction delineated as non-stakeholder content |
+| **Freshness class (COM §4)** | Time-sensitive |
+| **Authority level** | Highest available for v1 scope intent — most recent founder direction; supersedes nothing but **narrows** prior intent framing |
+| **Allowed usage** | Narrow Product Intent to a v1 simple controlled table editor; ground create/edit of experiment/work-item/task rows as v1 intent; ground removal of escalation-to-Vijay from product scope; ground treating access control as a simple separate-app **pattern** constraint (not NDT-SaaS reuse) |
+| **Prohibited usage** | May **not** define UI layout, database schema, API endpoints, or exact auth/access-control implementation; may **not** import or assume NDT-SaaS architecture; may **not** introduce an escalation workflow; may **not** define dashboard or operations-agent functionality for v1 |
+| **Sensitivity** | Internal — named individual; do not redistribute |
+| **Notes** | The follow-up "Yes" answers an either/or question and is **ambiguous on its face**; the operator correction in the source file (§2) is the disambiguating authority — "access control like we already have" means *similar simple pattern*, **not** NDT-SaaS reuse. `execution-platform` is a **separate application** from NDT-SaaS. |
+
+### 2.2 SRC-006 — L1 track placement confirmation
+
+| Field | SRC-006 |
+|---|---|
+| **File path** | `source-materials/product-discussions/l1-track-placement-confirmation-2026-06-09.md` |
+| **Source type** | Operator product classification confirmation |
+| **Classification (COM §3)** | **Primary, internal** |
+| **Provenance** | Operator confirmation of execution-platform's track placement within astraX's track taxonomy, captured 2026-06-09 |
+| **Capturer** | Vasu (vasu@astraanalytical.com) |
+| **Capture date** | 2026-06-09 |
+| **Date / as-of date** | 2026-06-09 (confirmation date) |
+| **Fidelity** | Verbatim statement preserved exactly; interpretation boundary documented |
+| **Freshness class (COM §4)** | Time-sensitive |
+| **Authority level** | Primary internal — operator product classification; resolves OQ-01 for Product Intent Brief |
+| **Allowed usage** | Resolves OQ-01 track placement for Product Intent Brief; grounds CTX-14 (execution-platform classified under OPS Cloud track for product-intent purposes) |
+| **Prohibited usage** | May **not** imply NDT-SaaS reuse or architectural coupling; may **not** define implementation architecture, access-control implementation, deployment, or technology; may **not** override ADR-000 separate-app boundary (CTX-11) |
+| **Sensitivity** | Internal |
+| **Notes** | Track classification is a product-organization concern, not an architectural decision. "OPS Cloud track" is a *business classification* only; it does not change the separate-app boundary established by CTX-11 and ADR-000. |
+
 ---
 
 ## 3. Source Quality Classification
@@ -72,19 +118,31 @@ Per Context Operating Model §3:
   load-bearing assertion. Functionally closer to pre-existing Research than to a Source
   Material; it is registered as a Source Material only to preserve it as evidence of the
   prior analysis pass.
+- **SRC-005 — primary internal.** Firsthand founder direction narrowing v1 product
+  intent, captured verbatim. May directly ground v1 scope-intent assertions, with the
+  internal-source caveat (statements evidence stated intent, not validated demand). The
+  follow-up "Yes" is ambiguous on its face and is disambiguated by the operator
+  correction recorded in the source file (separate-app pattern, **not** NDT-SaaS reuse).
+- **SRC-006 — primary internal.** Operator confirmation of execution-platform's track
+  placement within astraX's track taxonomy. May directly ground the product
+  classification assertion (CTX-14) and resolve OQ-01. Classification is a
+  product-organization concern only; it does not imply NDT-SaaS reuse or override the
+  separate-app boundary (CTX-11, ADR-000).
 
 ---
 
 ## 4. Freshness Assessment
 
-Per Context Operating Model §4, all three sources are **time-sensitive**; none is
-timeless, none is yet obsolete.
+Per Context Operating Model §4, all four registered sources are **time-sensitive**; none
+is timeless, none is yet obsolete.
 
 | Source | As-of date | Validity horizon (review-by) | Uncertainty |
 |---|---|---|---|
 | SRC-001 | 2026-06-04 (call date) | 2026-09-04 (proposed: 3 months — stakeholder intent and approval posture can shift) | Low — call date is in the filename and consistent with file timestamps. |
 | SRC-002 | **Resolved (was uncertain).** Internal target end dates (2026-06-14 … 2026-10-15) and "Jun–Nov roadmap" guidance confirm the tracking window is **June–November 2026** — a live tracker. As-of date: **no earlier than 2026-06-04** (file modification date). Resolution evidence: RES-001 F-25 (GAP-007 closed). | 2026-07-04 (proposed: 1 month — live tracker; contents decay continuously and should be re-captured before L1 handoff if stale) | Resolved 2026-06-05. Residual: the file is a snapshot of a living document; later edits are not captured. |
 | SRC-003 | 2026-06-05 (PDF creation date) | Until superseding Research/Context exists, or 2026-09-05, whichever is sooner | Low on date; high on content reliability (inferred class, not freshness). |
+| SRC-005 | 2026-06-07 (communication date); captured 2026-06-09 | 2026-09-07 (proposed: 3 months — v1 scope intent can shift) | Low on date. Residual: the follow-up "Yes" is ambiguous; disambiguated by operator correction, not by the stakeholder. |
+| SRC-006 | 2026-06-09 (confirmation date) | 2026-09-09 (proposed: 3 months — product classification can shift) | Low. Residual: single operator confirmation; no corroborating stakeholder source. |
 
 Proposed horizons are intake defaults; the Context Synthesis step may revise them with
 rationale.
@@ -110,6 +168,19 @@ rationale.
    SRC-002.
 5. Mixed grounding is encouraged: corroboration of SRC-001 statements by SRC-002
    artifact structure (or vice versa) strengthens assertions toward load-bearing grade.
+6. **SRC-005 (v1 scope narrowing)** may ground v1 product-intent claims: that v1 is a
+   simple controlled table editor for create/edit of experiment/work-item/task rows;
+   that escalation-to-Vijay is out of v1 scope; that access control is a simple
+   separate-app **pattern** (exact design unresolved). It may **not** ground UI, schema,
+   API, exact auth, NDT-SaaS reuse, escalation-workflow, or dashboard/agent claims
+   (§2.1 prohibited usage). The follow-up "Yes" must not be cited as resolving the
+   OPS-Cloud-reuse-vs-pattern question — the operator correction resolves it.
+7. **SRC-006 (track placement confirmation)** may ground the product classification
+   claim that execution-platform belongs under the OPS Cloud track (CTX-14). It may
+   **not** imply NDT-SaaS reuse, architectural coupling, implementation architecture,
+   deployment, technology choices, or override of the separate-app boundary (CTX-11,
+   ADR-000). Classification is a product-organization concern only (§2.2 prohibited
+   usage).
 
 ---
 
@@ -121,7 +192,7 @@ Source materials not yet captured, needed before full L0 Context can be approved
 | Gap ID | Missing material | Why needed | Target folder |
 |---|---|---|---|
 | GAP-001 | Raw chat notes on **task vs experiment** | SRC-003 flags this as unresolved (its §9 Q1–Q2) but the underlying discussion is uncaptured; only primary capture can ground it | `source-materials/product-discussions/` |
-| GAP-002 | Raw chat notes on **approval authority** | Approval posture appears in SRC-001/SRC-003 framing, but the dedicated thread is uncaptured | `source-materials/product-discussions/` |
+| GAP-002 | Raw chat notes on **approval authority** | Approval posture appears in SRC-001/SRC-003 framing, but the dedicated thread is uncaptured. **PARTIALLY ADDRESSED 2026-06-09:** SRC-005 directs that escalation-to-Vijay is not modeled in v1, removing escalation from v1 product scope; however, the broader acceptance/approval-authority question (OQ-02 / CON-002) remains **uncaptured and open** for any future approval feature | `source-materials/product-discussions/` |
 | GAP-003 | Raw chat notes on **commitment vs experiment** | SRC-003 cites an earlier "commitment as the atom" framing from an uncaptured discussion | `source-materials/product-discussions/` |
 | GAP-004 | Raw chat notes on **review cadence** (Friday-update / Monday-leads ritual) — **DOWNGRADED 2026-06-05:** substantially closed by SRC-002 primary evidence (How To Use: Friday updates, weekly standups, Monday leads meeting; RES-001 F-18). No longer blocking; capture would enrich but is deferable | ~~Cadence referenced only in SRC-003~~ Now primary-evidenced in SRC-002 | `source-materials/product-discussions/` (optional) |
 | GAP-005 | Screenshots or emails related to the **accountability app / workbook** usage | Would corroborate SRC-002's workflow-as-practiced and SRC-001's framing | `source-materials/reference/` |
