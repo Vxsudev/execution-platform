@@ -1,0 +1,40 @@
+flowchart TD
+    classDef done fill:#2d6a4f,color:#fff,stroke:#1b4332
+    classDef here fill:#0077b6,color:#fff,stroke:#023e8a
+    classDef deferred fill:#6c757d,color:#fff,stroke:#495057
+    classDef nxt fill:#e76f51,color:#fff,stroke:#ae2012
+    classDef buildstart fill:#d62828,color:#fff,stroke:#6a040f
+
+    A["A ✅ DONE\nEvidence and Context\nSRC-001…SRC-006 · RES-001\nCTX-01…CTX-14 approved"]:::done
+
+    B["B ✅ DONE\nProduct Intent\nL1 Intent Recon ✅ approved\nProduct Intent Brief ✅ approved\nv1 = simple table editor"]:::done
+
+    CURR["▶ CURRENT STATE ◀\nPIB approved · Actor Catalog draft\nready to author Minimal V1 PRD"]:::here
+
+    C["C ⚙ DEFERRED\nActor Catalog\nOQ-02 approval authority open\nOQ-10 dashboard readership open\nNOT a v1 build blocker"]:::deferred
+
+    D["D ← NEXT\nMinimal V1 PRD\ncolumns · row types · create/edit/list\nbasic access stance\nno escalation · no approval\nno dashboard · no agents"]:::nxt
+
+    E["E DEFERRED\nStack and Scaffold Decision\nfrontend + backend + db choice\nL3 concern — not yet decided"]:::deferred
+
+    F["F DEFERRED\nMinimal L2/L3\nbehavior + structure spec\nonly what v1 needs"]:::deferred
+
+    G["G DEFERRED\nL4 Verification\nacceptance criteria bound to PRD\nsmoke test strategy"]:::deferred
+
+    H["H ← BUILD START\nTraceability closes end-to-end\nINV-002 gate lifts\nsrc/ and app/ now permitted"]:::buildstart
+
+    I["I DEFERRED\nOS Execution Directive\ncompile-spec → generate-tasks\n→ execution-supervisor"]:::deferred
+
+    J["J DEFERRED\nProduct Code Created\nv1 table editor implemented\nverified · journaled"]:::deferred
+
+    A --> B
+    B --> CURR
+    CURR --> D
+    CURR -.-> C
+    C -. "frozen\nnot a build blocker" .-> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> J
