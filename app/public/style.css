@@ -1,0 +1,68 @@
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
+  --text:#e7e9ee; --muted:#9aa3b2; --accent:#6ea8fe; --accent2:#3b82f6;
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --info:#60a5fa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit}
+
+/* login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:340px}
+.login-card h1{margin:0 0 4px;font-size:18px}
+.login-card p{margin:0 0 18px;color:var(--muted);font-size:13px}
+.login-card label{display:block;margin:12px 0 4px;color:var(--muted);font-size:12px}
+.login-card input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.login-card button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:8px;background:var(--accent2);color:#fff;font-weight:600}
+.hint{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+
+/* app shell */
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.topbar h1{font-size:16px;margin:0;font-weight:600}
+.topbar .spacer{flex:1}
+.topbar .who{color:var(--muted);font-size:13px}
+.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:600}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad)}
+.wrap{padding:20px}
+
+/* table */
+.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:var(--panel2)}
+td .title{white-space:normal;max-width:360px}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:var(--panel2)}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line)}
+.tag.type-experiment{color:#c4b5fd}
+.tag.type-work_item{color:#7dd3fc}
+.tag.type-task{color:#fcd34d}
+.status{font-weight:600}
+.status.s-Complete{color:var(--ok)}
+.status.s-In.Progress,.status.s-InProgress{color:var(--info)}
+.status.s-Blocked{color:var(--bad)}
+.status.s-Inconclusive{color:var(--warn)}
+.status.s-Not.Started{color:var(--muted)}
+
+.row-actions{display:flex;gap:6px}
+.icon-btn{padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12px}
+
+/* modal */
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:34px 16px;overflow:auto}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:560px;max-width:100%;padding:22px}
+.modal h2{margin:0 0 16px;font-size:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field.full{grid-column:1 / -1}
+.field label{color:var(--muted);font-size:12px}
+.field input,.field select,.field textarea{padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);width:100%}
+.field textarea{min-height:62px;resize:vertical}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.error{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
