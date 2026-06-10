@@ -1,3 +1,39 @@
+# Task: Implement split workspaces frontend in app.js and style.css
+
+## Parent Spec
+specs/phase-2-split-workspaces.md
+
+## Phase
+phase-build
+
+## Status
+done
+
+## Layer
+frontend
+
+## Description
+Implement all P2-2 frontend changes. Two files to modify: `app/public/app.js` and
+`app/public/style.css`. Do NOT touch any other file. The complete new content for both
+files is specified below — use the Write tool to overwrite each file.
+
+**Scope summary:**
+- `state.workspace = 'all'` added to state object
+- Frontend permission helpers added (isAdmin, isTrackOwner, isViewer, canCreateInCurrentWorkspace,
+  canEditRow, canDeleteRow, visibleRowsForWorkspace, userScope)
+- renderApp(): workspace tabs for track_owner, conditional New row button
+- filteredRows(): workspace filter via visibleRowsForWorkspace
+- renderTable(): conditional Edit/Delete buttons, workspace-specific empty states
+- openForm(): track select constrained to userScope() for track_owner
+- style.css: 3 new workspace tab rules appended
+
+---
+
+### File 1: Write `app/public/app.js`
+
+Write the following content VERBATIM to `/Users/vasudevarao/execution-platform/app/public/app.js`:
+
+```
 // Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
 const state = {
@@ -314,3 +350,104 @@ function openForm(row) {
     } catch (e) { back.querySelector('#formErr').textContent = e.message; }
   };
 }
+```
+
+---
+
+### File 2: Append to `app/public/style.css`
+
+Append the following 3 lines to the END of `/Users/vasudevarao/execution-platform/app/public/style.css`:
+
+```
+.ws-tabs{display:flex;gap:4px}
+.ws-tab{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-size:12.5px}
+.ws-tab.active{background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:600}
+```
+
+---
+
+### File 3: Edit `app/README.md` — add Workspaces section
+
+Insert the following block into `/Users/vasudevarao/execution-platform/app/README.md`
+AFTER the `## API Validation` section (after the line ending with `HTTP 400.`) and BEFORE
+the `## Audit Metadata` section.
+
+Use the Edit tool. The old_string to replace is:
+
+```
+## Audit Metadata
+```
+
+Replace it with:
+
+```
+## Workspaces (Phase 2)
+
+### All Tracks View
+Available to all authenticated users. Shows all rows across all six tracks. Search and
+filter controls apply across all rows.
+
+### My Track Workspace
+Available to `track_owner` role only. Shows only rows in the user's assigned track scope.
+New row and Edit controls are enabled only for rows in assigned tracks. Delete is
+admin-only regardless of workspace.
+
+### Frontend control visibility
+
+| Control | admin | track_owner (All Tracks) | track_owner (My Track) | viewer |
+|---------|-------|--------------------------|------------------------|--------|
+| New row | ✓ | — | ✓ (assigned tracks only) | — |
+| Edit | ✓ all rows | — | ✓ assigned track rows | — |
+| Delete | ✓ | — | — | — |
+| Details | ✓ | ✓ | ✓ | ✓ |
+
+**Note:** Frontend controls are UX convenience only. Backend route guards (P2-1) enforce
+the same rules and will reject unauthorized raw API calls regardless of frontend state.
+
+## Audit Metadata
+```
+
+---
+
+### Verification after writing
+
+After writing both files, run a quick syntax check:
+
+```bash
+cd /Users/vasudevarao/execution-platform/app
+node -e "const fs=require('fs'); const src=fs.readFileSync('public/app.js','utf8'); Function(src)(); console.log('app.js: syntax OK');"
+```
+
+Expected output: `app.js: syntax OK`
+
+Also verify the key patterns are present:
+```bash
+grep -c 'workspace:' app/public/app.js          # should be >= 1
+grep -c 'isAdmin' app/public/app.js              # should be >= 1
+grep -c 'ws-tabs' app/public/app.js              # should be >= 1
+grep -c 'canEditRow' app/public/app.js           # should be >= 1
+grep -c 'ws-tabs' app/public/style.css           # should be 1
+```
+
+## Acceptance Criteria
+- [ ] app/public/app.js written with complete new content
+- [ ] state object has workspace: 'all'
+- [ ] Permission helpers (isAdmin, isTrackOwner, isViewer, userScope, canCreateInCurrentWorkspace, canEditRow, canDeleteRow, visibleRowsForWorkspace) all present
+- [ ] renderApp() includes ws-tabs block conditional on isTrackOwner()
+- [ ] New row button conditional on canCreateInCurrentWorkspace()
+- [ ] filteredRows() calls visibleRowsForWorkspace(state.rows)
+- [ ] renderTable() has conditional Edit/Delete and workspace-specific empty states
+- [ ] openForm() constrains track select to userScope() for track_owner
+- [ ] style.css has .ws-tabs, .ws-tab, .ws-tab.active rules appended
+- [ ] app/public/index.html NOT modified
+- [ ] app/server.js NOT modified
+- [ ] app/db.js NOT modified
+- [ ] node syntax check on app.js passes
+
+## Files Likely Affected
+- app/public/app.js
+- app/public/style.css
+- app/README.md
+
+## Blocked By
+- tasks/phase-2-split-workspaces-001.md

@@ -47,6 +47,29 @@ The Excel workbook is the structure source only. Runtime data persists in `data.
 - `track` must be one of: T1 AstraX Device, T2 AstraX Customer Cloud, T3 AstraX Ops Cloud, T4 Manufacturing partners, T5 Business, T6 Sales partner. Other values return HTTP 400.
 - Error responses: `{ "error": "field is required" }` HTTP 400.
 
+## Workspaces (Phase 2)
+
+### All Tracks View
+Available to all authenticated users. Shows all rows across all six tracks. Search and
+filter controls apply across all rows.
+
+### My Track Workspace
+Available to `track_owner` role only. Shows only rows in the user's assigned track scope.
+New row and Edit controls are enabled only for rows in assigned tracks. Delete is
+admin-only regardless of workspace.
+
+### Frontend control visibility
+
+| Control | admin | track_owner (All Tracks) | track_owner (My Track) | viewer |
+|---------|-------|--------------------------|------------------------|--------|
+| New row | ✓ | — | ✓ (assigned tracks only) | — |
+| Edit | ✓ all rows | — | ✓ assigned track rows | — |
+| Delete | ✓ | — | — | — |
+| Details | ✓ | ✓ | ✓ | ✓ |
+
+**Note:** Frontend controls are UX convenience only. Backend route guards (P2-1) enforce
+the same rules and will reject unauthorized raw API calls regardless of frontend state.
+
 ## Audit Metadata
 
 Every row carries four server-controlled audit fields. The client cannot supply or override them.

@@ -84,3 +84,6 @@ tr:hover td{background:var(--panel2)}
 .detail-list{margin:0 0 16px;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px}
 .detail-list dt{color:var(--muted)}
 .detail-list dd{margin:0;color:var(--text)}
+.ws-tabs{display:flex;gap:4px}
+.ws-tab{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-size:12.5px}
+.ws-tab.active{background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:600}

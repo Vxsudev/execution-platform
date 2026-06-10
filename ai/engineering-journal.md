@@ -638,3 +638,39 @@ Hardened the session/auth layer for client demo and deployment readiness without
 - Frontend still shows Edit/Delete buttons for all users regardless of role — P2-2 scope
 - No viewer seed in production — admin creates users via P2-3 (accepted)
 - No session expiry — carried from Phase 1, not P2-1 scope
+
+---
+
+### 2026-06-10
+
+### Feature
+
+phase-2-split-workspaces
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/phase-2-split-workspaces.md
+
+### Tasks
+
+
+- tasks/phase-2-split-workspaces-001.md [backend]
+- tasks/phase-2-split-workspaces-002.md [frontend]
+- tasks/phase-2-split-workspaces-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-10T11:13:17Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
