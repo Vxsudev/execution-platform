@@ -6,13 +6,13 @@ const state = {
 };
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
+const AUDIT_LABELS = { created_at: 'Created', updated_at: 'Updated', created_by: 'Created by', updated_by: 'Updated by' };
 
-// Table columns: 13 Sheet-2 contract columns in workbook order, then a compact
-// Type tag column, then Actions (rendered separately).
+// Table columns: 13 Sheet-2 contract columns in workbook order, audit metadata, then Type tag.
 const LIST_COLS = [
   'owner', 'track', 'title', 'function_area', 'parent_item', 'hypothesis',
   'design', 'success_criteria', 'target_end_date', 'dependencies', 'outcome',
-  'next_action', 'status', 'type',
+  'next_action', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at', 'type',
 ];
 // Long-text cells that get truncated with an ellipsis + full-text tooltip.
 const TRUNC_COLS = new Set(['hypothesis', 'design', 'success_criteria', 'outcome']);
@@ -88,7 +88,7 @@ function renderLogin(errMsg) {
 }
 
 // ---------- app ----------
-function colLabel(key) { return (state.fields.find((f) => f.key === key) || {}).label || key; }
+function colLabel(key) { return AUDIT_LABELS[key] || (state.fields.find((f) => f.key === key) || {}).label || key; }
 
 
 function optionTags(values, current, labelFn) {

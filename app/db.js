@@ -75,6 +75,10 @@ CREATE TABLE IF NOT EXISTS entries (
 );
 `);
 
+try { db.exec("ALTER TABLE entries ADD COLUMN created_by TEXT;"); } catch (_) {}
+try { db.exec("ALTER TABLE entries ADD COLUMN updated_by TEXT;"); } catch (_) {}
+
+
 // Seed users (change these in production).
 if (db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
   const ins = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
@@ -93,5 +97,9 @@ if (db.prepare('SELECT COUNT(*) c FROM entries').get().c === 0) {
   ins.run({ type: 'work_item', title: 'Sample work item', owner: 'demo', track: 'T2 AstraX Customer Cloud',
     function_area: 'Software', hypothesis: null, success_criteria: null, status: 'In Progress' });
 }
+
+// Backfill audit columns for any rows without stamps (including seed rows on fresh installs).
+db.exec("UPDATE entries SET created_by = 'system' WHERE created_by IS NULL;");
+db.exec("UPDATE entries SET updated_by = 'system' WHERE updated_by IS NULL;");
 
 module.exports = { db, ROW_FIELDS, ROW_TYPES, STATUSES, TRACKS };

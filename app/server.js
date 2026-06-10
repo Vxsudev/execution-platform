@@ -111,6 +111,8 @@ app.post('/api/rows', requireAuth, (req, res) => {
   if (!data.type) data.type = 'experiment';
   const err = validate(data, false, null);
   if (err) return res.status(400).json({ error: err });
+  data.created_by = req.user.username;
+  data.updated_by = req.user.username;
   const keys = Object.keys(data);
   const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
     .run(...keys.map(k => data[k]));
@@ -124,8 +126,8 @@ app.put('/api/rows/:id', requireAuth, (req, res) => {
   if (err) return res.status(400).json({ error: err });
   const keys = Object.keys(data);
   if (keys.length) {
-    const setSql = keys.map(k => `${k} = ?`).join(', ') + ", updated_at = datetime('now')";
-    db.prepare(`UPDATE entries SET ${setSql} WHERE id = ?`).run(...keys.map(k => data[k]), req.params.id);
+    const setSql = keys.map(k => `${k} = ?`).join(', ') + ", updated_at = datetime('now'), updated_by = ?";
+    db.prepare(`UPDATE entries SET ${setSql} WHERE id = ?`).run(...keys.map(k => data[k]), req.user.username, req.params.id);
   }
   res.json({ row: db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id) });
 });

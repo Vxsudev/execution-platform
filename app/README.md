@@ -47,6 +47,19 @@ The Excel workbook is the structure source only. Runtime data persists in `data.
 - `track` must be one of: T1 AstraX Device, T2 AstraX Customer Cloud, T3 AstraX Ops Cloud, T4 Manufacturing partners, T5 Business, T6 Sales partner. Other values return HTTP 400.
 - Error responses: `{ "error": "field is required" }` HTTP 400.
 
+## Audit Metadata
+
+Every row carries four server-controlled audit fields. The client cannot supply or override them.
+
+| Field | When Set | Value |
+|-------|----------|-------|
+| `created_at` | On create | Server timestamp (UTC) |
+| `created_by` | On create | Authenticated username from session |
+| `updated_at` | On every update | Server timestamp (UTC) |
+| `updated_by` | On every update | Authenticated username from session |
+
+Audit fields are read-only. They are displayed in the table but are not editable in the create/edit form.
+
 ## Track Taxonomy
 
 Track is a dropdown-only field (not free-text). The six canonical astraX tracks are:

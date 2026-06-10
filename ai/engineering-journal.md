@@ -305,3 +305,85 @@ None.
 ### Incidents
 
 None.
+
+---
+
+## 2026-06-10 — data-model-audit-trail
+
+### Feature
+
+data-model-audit-trail
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/data-model-audit-trail.md
+
+### Tasks
+
+- tasks/data-model-audit-trail-001.md [database]
+- tasks/data-model-audit-trail-002.md [backend]
+- tasks/data-model-audit-trail-003.md [frontend]
+- tasks/data-model-audit-trail-004.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh (tasks 001–002) and direct worker execution (tasks 003–004) at 2026-06-10.
+All 4 tasks completed. Verification passed.
+
+**Migration**: `ALTER TABLE entries ADD COLUMN created_by TEXT` and `updated_by TEXT` (try/catch for
+idempotency). Backfill UPDATE runs after seed rows to stamp NULL rows with 'system'. Covers both
+existing-DB upgrades and fresh installs.
+
+**Backend stamping**: POST handler stamps `data.created_by = req.user.username` and `data.updated_by`
+after `validate()` and before `Object.keys(data)`. PUT handler appends `updated_by = ?` to the SET
+clause with `req.user.username` bound between data values and row id. `created_by`/`created_at` are
+never touched on PUT.
+
+**Forge prevention**: `sanitize()` whitelist (FIELD_KEYS = ROW_FIELDS keys) strips any client-supplied
+`created_by`/`updated_by`/`created_at`/`updated_at` before validation. Audit columns are not in ROW_FIELDS,
+so they cannot pass through — no additional protection layer needed.
+
+**Frontend**: `AUDIT_LABELS` constant added; `colLabel()` checks AUDIT_LABELS before state.fields;
+LIST_COLS extended with `created_by`, `updated_by`, `created_at`, `updated_at` before `type`. Audit
+columns are not in ROW_FIELDS so they never appear in the create/edit form. Table already has
+horizontal scroll — no CSS change needed.
+
+**Backfill order fix**: Initial implementation placed backfill before seed insert, leaving seed rows
+NULL on fresh installs. Fixed by moving backfill to after the seed block (still WHERE IS NULL, so
+idempotent on existing rows with stamps).
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+Execution supervisor stopped after task 002 due to output truncation; tasks 003–004 executed
+directly as authorized worker within EXECUTION_ACTIVE state. State advanced manually to
+VERIFICATION_REQUIRED → RELEASE_APPROVED after 5/5 invariant pass.
+
+### Invariant Status
+
+5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Server boots | ✅ |
+| Login 200 | ✅ |
+| Seed rows: created_by=system, updated_by=system | ✅ |
+| POST valid → 201 with created_by=admin, updated_by=admin | ✅ |
+| POST forge → 201 with created_by=admin (forge rejected) | ✅ |
+| PUT valid → 200 with updated_by=admin, created_by preserved | ✅ |
+| PUT forge → 200 with updated_by=admin (forge rejected) | ✅ |
+| POST missing owner → 400 owner is required | ✅ |
+| POST fake track → 400 invalid track | ✅ |
+| POST bad status → 400 invalid status | ✅ |
+| Persistence after restart | ✅ |
+| 5/5 invariants PASS | ✅ |
+| Surface audit clean | ✅ |
