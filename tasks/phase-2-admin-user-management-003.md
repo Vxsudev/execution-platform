@@ -1,3 +1,39 @@
+# Task: Implement admin users UI in app.js, style.css, and README
+
+## Parent Spec
+specs/phase-2-admin-user-management.md
+
+## Phase
+phase-build
+
+## Status
+done
+
+## Layer
+frontend
+
+## Description
+Add admin-only user management panel to the frontend. Three files to modify:
+`app/public/app.js`, `app/public/style.css`, `app/README.md`.
+Do NOT modify app/public/index.html or app/server.js.
+
+Summary of changes from current P2-2 app.js:
+- state: add `page: 'rows', users: []`
+- new function: `loadUsers()`
+- renderApp(): add Users button for admin, conditional users panel vs rows panel
+- new function: `renderUsersTable()`
+- new function: `bindUserActions()`
+- new function: `openUserForm(user)`
+- style.css: append 2 more rules
+- README: add Admin User Management section
+
+---
+
+### File 1: Write `app/public/app.js`
+
+Write the following content VERBATIM to `/Users/vasudevarao/execution-platform/app/public/app.js`:
+
+```
 // Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
 const state = {
@@ -445,3 +481,96 @@ function openForm(row) {
     } catch (e) { back.querySelector('#formErr').textContent = e.message; }
   };
 }
+```
+
+---
+
+### File 2: Append to `app/public/style.css`
+
+Append the following 2 lines to the END of `/Users/vasudevarao/execution-platform/app/public/style.css`:
+
+```
+.users-header{display:flex;align-items:center;justify-content:space-between;padding:12px 0 10px}
+.users-title{margin:0;font-size:15px;font-weight:600}
+```
+
+---
+
+### File 3: Edit `app/README.md` — add Admin User Management section
+
+Insert the following block BEFORE the `## Workspaces (Phase 2)` section.
+
+Use the Edit tool. old_string:
+
+```
+## Workspaces (Phase 2)
+```
+
+Replace with:
+
+```
+## Admin User Management (Phase 2)
+
+All user accounts are created and managed by the admin. There is no public signup, no email
+invite, and no password reset flow.
+
+### Account creation
+
+Admin logs in → clicks **Users** in the topbar → clicks **+ New user** → fills in
+username, password, role, and (for track_owner) track scope → submits.
+
+### Roles
+
+| Role | Row access | User management |
+|------|-----------|-----------------|
+| admin | Full CRUD across all tracks | Full user management |
+| track_owner | Create/edit own track rows; read all | None |
+| viewer | Read all rows | None |
+
+### Password handling
+
+Passwords are hashed server-side with bcryptjs (cost 10). The password_hash is never
+returned by any API endpoint. Admin can reset any user's password via the edit form.
+
+### Demo users (non-production only)
+
+`admin` (admin123) and `vasu` (vasu123) are seeded only when `NODE_ENV !== 'production'`.
+In production, create users via the Users panel after bootstrapping the first admin account
+directly in the database.
+
+## Workspaces (Phase 2)
+```
+
+---
+
+### Verification after writing
+
+```bash
+cd /Users/vasudevarao/execution-platform/app
+node -e "const fs=require('fs'); const src=fs.readFileSync('public/app.js','utf8'); new Function(src); console.log('app.js: syntax OK');"
+grep -c 'page:' public/app.js         # should be >= 1
+grep -c 'loadUsers' public/app.js     # should be >= 1
+grep -c 'renderUsersTable' public/app.js  # should be >= 1
+grep -c 'openUserForm' public/app.js  # should be >= 1
+grep -c 'users-header' public/style.css  # should be 1
+```
+
+## Acceptance Criteria
+- [ ] app/public/app.js written with page/users state, loadUsers, renderUsersTable, bindUserActions, openUserForm
+- [ ] renderApp() has usersPageBtn for admin, conditional users panel vs rows panel
+- [ ] openUserForm: track_scope shown/required only for track_owner role
+- [ ] Delete button hidden in users list for currently logged-in user (self)
+- [ ] style.css has .users-header and .users-title rules
+- [ ] README has Admin User Management section
+- [ ] app/public/index.html NOT modified
+- [ ] app/server.js NOT modified
+- [ ] app/db.js NOT modified
+- [ ] node syntax check passes
+
+## Files Likely Affected
+- app/public/app.js
+- app/public/style.css
+- app/README.md
+
+## Blocked By
+- tasks/phase-2-admin-user-management-002.md

@@ -47,6 +47,35 @@ The Excel workbook is the structure source only. Runtime data persists in `data.
 - `track` must be one of: T1 AstraX Device, T2 AstraX Customer Cloud, T3 AstraX Ops Cloud, T4 Manufacturing partners, T5 Business, T6 Sales partner. Other values return HTTP 400.
 - Error responses: `{ "error": "field is required" }` HTTP 400.
 
+## Admin User Management (Phase 2)
+
+All user accounts are created and managed by the admin. There is no public signup, no email
+invite, and no password reset flow.
+
+### Account creation
+
+Admin logs in → clicks **Users** in the topbar → clicks **+ New user** → fills in
+username, password, role, and (for track_owner) track scope → submits.
+
+### Roles
+
+| Role | Row access | User management |
+|------|-----------|-----------------|
+| admin | Full CRUD across all tracks | Full user management |
+| track_owner | Create/edit own track rows; read all | None |
+| viewer | Read all rows | None |
+
+### Password handling
+
+Passwords are hashed server-side with bcryptjs (cost 10). The password_hash is never
+returned by any API endpoint. Admin can reset any user's password via the edit form.
+
+### Demo users (non-production only)
+
+`admin` (admin123) and `vasu` (vasu123) are seeded only when `NODE_ENV !== 'production'`.
+In production, create users via the Users panel after bootstrapping the first admin account
+directly in the database.
+
 ## Workspaces (Phase 2)
 
 ### All Tracks View

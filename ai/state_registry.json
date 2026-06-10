@@ -42,5 +42,9 @@
   "phase-2-split-workspaces": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-10T11:13:17Z"
+  },
+  "phase-2-admin-user-management": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-10T14:06:01Z"
   }
 }

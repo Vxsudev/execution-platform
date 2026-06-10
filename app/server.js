@@ -196,5 +196,98 @@ app.delete('/api/rows/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- user management ----
+const VALID_ROLES = ['admin', 'track_owner', 'viewer'];
+
+function normalizeRole(role) {
+  return VALID_ROLES.includes(role) ? role : null;
+}
+
+function normalizeTrackScope(role, scopeInput) {
+  if (role !== 'track_owner') return JSON.stringify([]);
+  const scope = Array.isArray(scopeInput) ? scopeInput : [];
+  for (const t of scope) { if (!TRACKS.includes(t)) return null; }
+  return JSON.stringify(scope);
+}
+
+function publicUser(u) {
+  return { id: u.id, username: u.username, role: u.role, track_scope: parseScope(u), created_at: u.created_at };
+}
+
+app.get('/api/users', requireAuth, (req, res) => {
+  if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const users = db.prepare('SELECT id, username, role, track_scope, created_at FROM users ORDER BY id').all();
+  res.json({ users: users.map(publicUser) });
+});
+
+app.post('/api/users', requireAuth, (req, res) => {
+  if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const { username, password, role, track_scope } = req.body || {};
+  if (!username || !String(username).trim()) return res.status(400).json({ error: 'username is required' });
+  if (!password || !String(password).trim()) return res.status(400).json({ error: 'password is required' });
+  const normalizedRole = normalizeRole(role);
+  if (!normalizedRole) return res.status(400).json({ error: 'invalid role' });
+  if (normalizedRole === 'track_owner' && (!Array.isArray(track_scope) || track_scope.length === 0)) {
+    return res.status(400).json({ error: 'track_scope required for track_owner' });
+  }
+  const normalizedScope = normalizeTrackScope(normalizedRole, track_scope);
+  if (normalizedScope === null) return res.status(400).json({ error: 'invalid track_scope' });
+  try {
+    const hash = bcrypt.hashSync(String(password), 10);
+    const info = db.prepare('INSERT INTO users (username, password_hash, role, track_scope) VALUES (?, ?, ?, ?)')
+      .run(String(username).trim(), hash, normalizedRole, normalizedScope);
+    const created = db.prepare('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?').get(info.lastInsertRowid);
+    res.status(201).json({ user: publicUser(created) });
+  } catch (e) {
+    if (e.message && e.message.includes('UNIQUE constraint')) {
+      return res.status(400).json({ error: 'username already exists' });
+    }
+    throw e;
+  }
+});
+
+app.put('/api/users/:id', requireAuth, (req, res) => {
+  if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'user not found' });
+  const { role, track_scope, password } = req.body || {};
+  if (req.user.id === id && role !== undefined && role !== 'admin') {
+    return res.status(403).json({ error: 'cannot demote your own admin account' });
+  }
+  const updates = {};
+  if (role !== undefined) {
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole) return res.status(400).json({ error: 'invalid role' });
+    if (normalizedRole === 'track_owner' && (!Array.isArray(track_scope) || track_scope.length === 0)) {
+      return res.status(400).json({ error: 'track_scope required for track_owner' });
+    }
+    const normalizedScope = normalizeTrackScope(normalizedRole, track_scope);
+    if (normalizedScope === null) return res.status(400).json({ error: 'invalid track_scope' });
+    updates.role = normalizedRole;
+    updates.track_scope = normalizedScope;
+  }
+  if (password !== undefined && String(password).trim()) {
+    updates.password_hash = bcrypt.hashSync(String(password), 10);
+  }
+  if (Object.keys(updates).length) {
+    const setClause = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+    db.prepare(`UPDATE users SET ${setClause} WHERE id = ?`).run(...Object.values(updates), id);
+  }
+  const updated = db.prepare('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?').get(id);
+  res.json({ user: publicUser(updated) });
+});
+
+app.delete('/api/users/:id', requireAuth, (req, res) => {
+  if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const id = Number(req.params.id);
+  if (req.user.id === id) return res.status(403).json({ error: 'cannot delete your own account' });
+  const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'user not found' });
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  res.json({ ok: true });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`execution-table-app running on http://localhost:${PORT}`));
