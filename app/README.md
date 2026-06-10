@@ -40,6 +40,12 @@ Entry types: `experiment`, `work_item`, `task`
 
 The Excel workbook is the structure source only. Runtime data persists in `data.db` and is not synced back to the workbook.
 
+## API Validation
+
+- **POST `/api/rows`** — required fields: `title`, `owner`, `track`, `status` (all must be non-blank). Missing or blank required field returns HTTP 400.
+- **PUT `/api/rows/:id`** — partial updates are allowed; supplying a blank value for a required field returns HTTP 400. After merging with the existing row, all required fields must remain non-blank.
+- Error responses: `{ "error": "field is required" }` HTTP 400.
+
 ## Out of Scope (v1)
 
 - Escalation workflow

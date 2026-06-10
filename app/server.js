@@ -11,6 +11,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const SID = 'sid';
 const FIELD_KEYS = ROW_FIELDS.map(f => f.key);
+const REQUIRED_FIELDS = ROW_FIELDS.filter(f => f.required).map(f => f.key);
 
 function parseCookies(req) {
   const out = {};
@@ -72,11 +73,25 @@ function sanitize(body) {
   }
   return out;
 }
-function validate(data, partial) {
-  if (!partial && (!data.title || !data.title.trim())) return 'title is required';
-  if (partial && data.title !== undefined && (!data.title || !data.title.trim())) return 'title cannot be empty';
+function validate(data, partial, existingRow) {
+  if (!partial) {
+    for (const field of REQUIRED_FIELDS) {
+      if (!data[field] || !String(data[field]).trim()) return `${field} is required`;
+    }
+  } else {
+    for (const field of REQUIRED_FIELDS) {
+      if (data[field] !== undefined && !String(data[field] || '').trim())
+        return `${field} cannot be empty`;
+    }
+    if (existingRow) {
+      const merged = { ...existingRow, ...data };
+      for (const field of REQUIRED_FIELDS) {
+        if (!merged[field] || !String(merged[field]).trim()) return `${field} is required`;
+      }
+    }
+  }
   if (data.type !== undefined && !ROW_TYPES.includes(data.type)) return 'invalid type';
-  if (data.status !== undefined && data.status !== '' && !STATUSES.includes(data.status)) return 'invalid status';
+  if (data.status !== undefined && !STATUSES.includes(data.status)) return 'invalid status';
   return null;
 }
 
@@ -91,8 +106,7 @@ app.get('/api/rows/:id', requireAuth, (req, res) => {
 app.post('/api/rows', requireAuth, (req, res) => {
   const data = sanitize(req.body || {});
   if (!data.type) data.type = 'experiment';
-  if (!data.status) data.status = 'Not Started';
-  const err = validate(data, false);
+  const err = validate(data, false, null);
   if (err) return res.status(400).json({ error: err });
   const keys = Object.keys(data);
   const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
@@ -103,7 +117,7 @@ app.put('/api/rows/:id', requireAuth, (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const data = sanitize(req.body || {});
-  const err = validate(data, true);
+  const err = validate(data, true, existing);
   if (err) return res.status(400).json({ error: err });
   const keys = Object.keys(data);
   if (keys.length) {
