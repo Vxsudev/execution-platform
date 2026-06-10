@@ -1,3 +1,30 @@
+# Task: Add admin-only XLSX import UI to the frontend
+
+## Parent Spec
+specs/phase-2-xlsx-import.md
+
+## Phase
+phase-build
+
+## Status
+done
+
+## Layer
+frontend
+
+## Description
+Add the admin-only Import surface to the SPA. Modify ONLY `app/public/app.js`,
+`app/public/style.css`, and `app/README.md`. Do NOT modify server.js, db.js, or
+index.html. The frontend is UX only — the backend is authoritative.
+
+### Step 1 — Replace app/public/app.js with the exact content below
+Use the Write tool to overwrite `/Users/vasudevarao/execution-platform/app/public/app.js`
+with EXACTLY this content (it adds `state.importPreview`, an admin-only Import
+topbar tab, `state.page === 'import'` handling, `renderImportPanel()`,
+`fileToBase64()`, and `bindImportActions()`; all existing rows/users/login
+behavior is preserved verbatim):
+
+```javascript
 // Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
 const state = {
@@ -547,3 +574,66 @@ function openForm(row) {
     } catch (e) { back.querySelector('#formErr').textContent = e.message; }
   };
 }
+```
+
+### Step 2 — Append import-panel styles to app/public/style.css
+Append these rules to the END of `app/public/style.css` (do not remove anything):
+
+```css
+.import-panel{padding:14px 0}
+.import-note{color:var(--muted);font-size:12.5px;max-width:680px;margin:6px 0 14px;line-height:1.5}
+.import-controls{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.import-summary{margin:14px 0;font-size:13px}
+.import-summary .ok{color:#1a7f37;font-weight:600}
+.import-summary .bad{color:var(--bad);font-weight:600}
+.import-h{font-size:13px;font-weight:600;margin:18px 0 6px}
+button[disabled]{opacity:.5;cursor:not-allowed}
+```
+
+### Step 3 — Document the feature in app/README.md
+Insert a new section titled `## XLSX Import (Phase 2)` immediately BEFORE the
+existing `## Workspaces (Phase 2)` section. Content to add:
+
+```markdown
+## XLSX Import (Phase 2)
+
+Admins can bulk-import experiment rows from the astraX workbook via the **Import**
+tab (admin only; track owners and viewers never see it).
+
+- **Two-step, never destructive.** *Preview* parses the workbook and validates
+  every row but writes nothing. *Commit Import* re-validates server-side and
+  inserts only valid rows. The button is disabled until a preview yields valid rows.
+- **Source sheet:** `All Experiment Summary` (header row 4). The side
+  STATUS SUMMARY / Count panel is ignored.
+- **Validation:** required `Owner`, `Track`, `Experiment Title`, `Status`; `Track`
+  must be a canonical track and `Status` a canonical status. Invalid rows are
+  listed with their spreadsheet row number and reasons; fully-empty rows are skipped.
+- **Imported rows** default `type = experiment` and are stamped `created_by` /
+  `updated_by` = the importing admin.
+- The SQLite database is the runtime source of truth; the workbook is a one-time
+  import source, not a continuous sync. No multipart upload, no dedupe, no track
+  normalization in Phase 2 — rows whose track labels differ from the canonical
+  taxonomy are reported invalid and must be corrected in the workbook first.
+```
+
+### Step 4 — Syntax check
+```bash
+cd /Users/vasudevarao/execution-platform/app
+node --check public/app.js && echo "app.js syntax OK"
+```
+
+## Acceptance Criteria
+- [ ] `state.importPreview` added; `state.page` supports `'import'`.
+- [ ] Admin-only **Import** tab in the topbar; toggling it shows the import panel; non-admins never see it.
+- [ ] Import panel: `.xlsx` file input, Preview button, summary (sheet + total/valid/invalid), invalid-row list (row number + errors), valid-row preview (first 10), Commit button disabled unless valid rows exist.
+- [ ] Preview posts base64 to `/api/import/preview`; Commit posts valid rows to `/api/import/commit`, then reloads rows and returns to All Tracks.
+- [ ] `node --check public/app.js` passes; rows/users/login behavior unchanged.
+- [ ] Only `app/public/app.js`, `app/public/style.css`, `app/README.md` modified.
+
+## Files Likely Affected
+- app/public/app.js
+- app/public/style.css
+- app/README.md
+
+## Blocked By
+- tasks/phase-2-xlsx-import-002.md

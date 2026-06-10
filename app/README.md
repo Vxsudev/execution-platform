@@ -76,6 +76,26 @@ returned by any API endpoint. Admin can reset any user's password via the edit f
 In production, create users via the Users panel after bootstrapping the first admin account
 directly in the database.
 
+## XLSX Import (Phase 2)
+
+Admins can bulk-import experiment rows from the astraX workbook via the **Import**
+tab (admin only; track owners and viewers never see it).
+
+- **Two-step, never destructive.** *Preview* parses the workbook and validates
+  every row but writes nothing. *Commit Import* re-validates server-side and
+  inserts only valid rows. The button is disabled until a preview yields valid rows.
+- **Source sheet:** `All Experiment Summary` (header row 4). The side
+  STATUS SUMMARY / Count panel is ignored.
+- **Validation:** required `Owner`, `Track`, `Experiment Title`, `Status`; `Track`
+  must be a canonical track and `Status` a canonical status. Invalid rows are
+  listed with their spreadsheet row number and reasons; fully-empty rows are skipped.
+- **Imported rows** default `type = experiment` and are stamped `created_by` /
+  `updated_by` = the importing admin.
+- The SQLite database is the runtime source of truth; the workbook is a one-time
+  import source, not a continuous sync. No multipart upload, no dedupe, no track
+  normalization in Phase 2 — rows whose track labels differ from the canonical
+  taxonomy are reported invalid and must be corrected in the workbook first.
+
 ## Workspaces (Phase 2)
 
 ### All Tracks View
