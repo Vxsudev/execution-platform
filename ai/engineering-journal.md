@@ -748,3 +748,78 @@ None.
 ### Incidents
 
 None.
+
+---
+
+### 2026-06-10
+
+### Feature
+
+phase-2-xlsx-import-open-mode
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/phase-2-xlsx-import-open-mode.md
+
+### Tasks
+
+
+- tasks/phase-2-xlsx-import-open-mode-001.md [backend]
+- tasks/phase-2-xlsx-import-open-mode-002.md [frontend]
+- tasks/phase-2-xlsx-import-open-mode-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-10T21:41:51Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+### 2026-06-11 — P2-4A Open Import Mode Patch (operator note)
+
+**Feature:** phase-2-xlsx-import-open-mode (RELEASE_APPROVED) — patch on top of P2-4.
+
+**Operator decision:** changed the requirement from strict canonical import to
+**capture-first ("open") import** after testing the real astraX workbook (P2-4
+strict validation rejected all 19 rows because track labels are shorthand like
+`T1-Device`/`T1 Device` and many owner/status cells are blank).
+
+**What changed (import routes only):**
+- Import validation now **warns instead of blocks**. `classifyImportRow` replaced
+  the strict `validateImportRow`. A row is unimportable **only** when its title is
+  blank (`title is required`); every other row imports.
+- owner blank → `Unassigned`; track blank → `Unassigned Track`; non-canonical track
+  imported **as-is** (track is free TEXT). status blank → `Not Started`.
+- **Schema-aware exception:** `entries.status` carries a DB `CHECK` constraint and
+  `app/db.js` was NOT modified, so a blank or non-canonical status is **coerced to
+  `Not Started` with a disclosing warning** (arbitrary status text cannot be stored).
+  `type` is likewise always defaulted to `experiment`. Commit guards each insert in
+  try/catch so it never crashes the batch.
+
+**What did NOT change:** strict row CRUD validation for `POST`/`PUT /api/rows`
+remains canonical-only (manual rows still reject invalid track and invalid status).
+Admin-only gating, preview-before-commit, audit stamping, the SSF date fix, and the
+DB-as-source-of-truth invariant are all preserved.
+
+**Live workbook verification:** preview now returns **19 importable / 0 skipped /
+36 warnings** (was 0 importable under strict mode); commit inserted all 19 with
+`created_by`/`updated_by=admin`, `type=experiment`, non-canonical track stored
+verbatim, all statuses canonical (CHECK-safe). Title-blank rows skipped; non-admin
+preview/commit 403, anon 401; manual invalid-track/status POST still rejected;
+P2-1/P2-2/P2-3 regressions pass; invariants 5/5.
+
+**Incident (resolved):** the verification task's shell cleanup loop captured Node's
+FORCE_COLOR-colorized numbers into `curl` URLs, orphaning 19 import rows; cleaned up
+out-of-band, DB restored to its original 7 rows. Recorded as a recurring-artifact memo.

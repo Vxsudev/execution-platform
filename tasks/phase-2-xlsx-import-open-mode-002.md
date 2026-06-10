@@ -1,3 +1,30 @@
+# Task: Update Import UI to open-mode language and shape
+
+## Parent Spec
+specs/phase-2-xlsx-import-open-mode.md
+
+## Phase
+phase-build
+
+## Status
+done
+
+## Layer
+frontend
+
+## Description
+Update the admin Import panel to the open-mode shape/language. Modify ONLY
+`app/public/app.js`, `app/public/style.css`, and `app/README.md`. Do NOT modify
+server.js, db.js, or index.html.
+
+### Step 1 — Replace app/public/app.js with the exact content below
+Use the Write tool to overwrite `/Users/vasudevarao/execution-platform/app/public/app.js`
+with EXACTLY this content (only `renderImportPanel` and the commit handler in
+`bindImportActions` changed vs the prior version — it now reads
+`state.importPreview.{summary.importable_rows/skipped_rows/warning_count, rows[].{row_number,warnings,data}, skipped_rows[]}`
+and posts `rows.map(r => r.data)` on commit; all other behavior is unchanged):
+
+```javascript
 // Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
 const state = {
@@ -391,7 +418,7 @@ function renderImportPanel() {
         <td>${r.row_number}</td>
         <td>${esc(r.data.owner)}</td><td>${esc(r.data.track)}</td><td>${esc(r.data.title)}</td>
         <td>${esc(r.data.status)}</td><td>${esc(r.data.type)}</td>
-        <td class="trunc" title="${esc(r.warnings.join('; '))}">${esc(r.warnings.join('; ') || '—')}</td>
+        <td class="trunc" title="${esc(r.warnings.join('; '))}">${esc(r.warnings.join('; ') || '\u2014')}</td>
       </tr>`).join('')}
     </tbody></table></div>` : '';
   const skipped = (p && p.skipped_rows.length) ? `
@@ -550,3 +577,42 @@ function openForm(row) {
     } catch (e) { back.querySelector('#formErr').textContent = e.message; }
   };
 }
+```
+
+### Step 2 — Append an amber warning token to app/public/style.css
+Append to the END of `app/public/style.css`:
+
+```css
+.import-summary .warn{color:#9a6700;font-weight:600}
+```
+
+### Step 3 — Update the README XLSX Import section
+In `app/README.md`, replace the body of the `## XLSX Import (Phase 2)` section to
+describe open mode. It must state: capture-first (every row with a title imports);
+blank owner → Unassigned, blank track → Unassigned Track, blank/unrecognized status →
+Not Started; non-canonical tracks import as-is; status is coerced (not stored arbitrary)
+because the DB constrains status; issues are warnings not blockers; only a blank title
+skips a row; preview before commit; DB remains source of truth; manual row creation
+still uses strict canonical dropdowns/validation.
+
+### Step 4 — Syntax check
+```bash
+cd /Users/vasudevarao/execution-platform/app
+node --check public/app.js && echo "app.js syntax OK"
+```
+
+## Acceptance Criteria
+- [ ] Import panel reads the open-mode preview shape and shows importable / warnings / skipped counts.
+- [ ] Importable-rows preview includes a Warnings column; skipped-rows list shows row number + reason.
+- [ ] Copy says importable/warnings/skipped (not valid/invalid); commit enabled when importable_rows > 0.
+- [ ] Commit posts `rows.map(r => r.data)`.
+- [ ] `node --check public/app.js` passes; users/rows/login behavior unchanged.
+- [ ] Only `app/public/app.js`, `app/public/style.css`, `app/README.md` modified.
+
+## Files Likely Affected
+- app/public/app.js
+- app/public/style.css
+- app/README.md
+
+## Blocked By
+- tasks/phase-2-xlsx-import-open-mode-001.md

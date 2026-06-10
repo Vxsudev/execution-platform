@@ -81,20 +81,33 @@ directly in the database.
 Admins can bulk-import experiment rows from the astraX workbook via the **Import**
 tab (admin only; track owners and viewers never see it).
 
-- **Two-step, never destructive.** *Preview* parses the workbook and validates
-  every row but writes nothing. *Commit Import* re-validates server-side and
-  inserts only valid rows. The button is disabled until a preview yields valid rows.
+- **Capture-first ("open mode").** Whatever the workbook contains is imported. The
+  importer **warns** about imperfect data instead of **blocking** it. The only thing
+  that makes a row unimportable is a **blank title** — every row with a title imports.
+- **Two-step, never destructive.** *Preview* parses the workbook and classifies
+  every row but writes nothing. *Commit Import* re-classifies server-side and inserts
+  the importable rows. The button is disabled until a preview yields importable rows.
 - **Source sheet:** `All Experiment Summary` (header row 4). The side
   STATUS SUMMARY / Count panel is ignored.
-- **Validation:** required `Owner`, `Track`, `Experiment Title`, `Status`; `Track`
-  must be a canonical track and `Status` a canonical status. Invalid rows are
-  listed with their spreadsheet row number and reasons; fully-empty rows are skipped.
-- **Imported rows** default `type = experiment` and are stamped `created_by` /
-  `updated_by` = the importing admin.
+- **Coercions (shown as warnings, not blockers):**
+  - Blank `Owner` → `Unassigned`.
+  - Blank `Track` → `Unassigned Track`. Non-canonical tracks are imported **as-is**
+    (the `track` column is free text), with a warning.
+  - Blank or unrecognized `Status` → `Not Started`. Status is **coerced** rather than
+    stored verbatim because the database constrains `status` to its five canonical
+    values via a `CHECK`; arbitrary status text cannot be stored. The preview discloses
+    the coercion.
+  - `type` defaults to `experiment` unless a valid type value is supplied.
+- **Only a blank title skips a row.** Skipped rows are listed with their spreadsheet
+  row number and the reason (`title is required`). Importable rows are previewed with a
+  **Warnings** column so issues are visible before commit.
+- **Imported rows** are stamped `created_by` / `updated_by` = the importing admin.
 - The SQLite database is the runtime source of truth; the workbook is a one-time
-  import source, not a continuous sync. No multipart upload, no dedupe, no track
-  normalization in Phase 2 — rows whose track labels differ from the canonical
-  taxonomy are reported invalid and must be corrected in the workbook first.
+  import source, not a continuous sync. No multipart upload, no dedupe, and no track
+  normalization/aliasing in Phase 2.
+- **Manual row creation is unchanged.** Creating or editing rows through the UI still
+  uses the strict canonical dropdowns and `POST`/`PUT /api/rows` validation — open mode
+  applies to import only.
 
 ## Workspaces (Phase 2)
 

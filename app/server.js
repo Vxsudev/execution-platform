@@ -317,7 +317,11 @@ const IMPORT_HEADER_MAP = {
   'Next Action': 'next_action',
   'Status': 'status',
 };
-const IMPORT_REQUIRED = ['owner', 'track', 'title', 'status'];
+
+// Open-mode (capture-first) defaults. title is the only hard requirement.
+const IMPORT_UNASSIGNED_OWNER = 'Unassigned';
+const IMPORT_UNASSIGNED_TRACK = 'Unassigned Track';
+const IMPORT_DEFAULT_STATUS = 'Not Started';
 
 function resolveImportSheet(wb) {
   if (wb.SheetNames.includes(IMPORT_SHEET)) return IMPORT_SHEET;
@@ -370,15 +374,30 @@ function parseImportWorkbook(buffer) {
   return { sheet, rows };
 }
 
-function validateImportRow(data) {
-  const errors = [];
-  for (const f of IMPORT_REQUIRED) {
-    if (!data[f] || !String(data[f]).trim()) errors.push(`${f} is required`);
+// Open-mode classification (capture-first). A row is unimportable ONLY if title is blank.
+// owner/track/status are defaulted and/or warned, never blocking:
+//   - blank owner  → "Unassigned"          (warn)
+//   - blank track  → "Unassigned Track"     (warn);  non-canonical track imports AS-IS (warn) — track is free TEXT
+//   - blank status → "Not Started"          (warn);  non-canonical status COERCED to "Not Started" (warn)
+// status is coerced because entries.status has a CHECK constraint (db.js is not modified);
+// type is coerced to a canonical value for the same reason. Returns normalized data + warnings.
+function classifyImportRow(data) {
+  const d = data && typeof data === 'object' ? (data.data && typeof data.data === 'object' ? data.data : data) : {};
+  const title = d.title == null ? '' : String(d.title).trim();
+  if (!title) return { importable: false, reason: 'title is required' };
+  const out = {};
+  for (const k of FIELD_KEYS) {
+    if (d[k] !== undefined && d[k] !== null) out[k] = String(d[k]).trim();
   }
-  if (data.track && !TRACKS.includes(data.track)) errors.push('invalid track');
-  if (data.status && !STATUSES.includes(data.status)) errors.push('invalid status');
-  if (data.type !== undefined && data.type !== '' && !ROW_TYPES.includes(data.type)) errors.push('invalid type');
-  return errors;
+  out.title = title;
+  const warnings = [];
+  if (!out.owner) { out.owner = IMPORT_UNASSIGNED_OWNER; warnings.push('owner blank; set to Unassigned'); }
+  if (!out.track) { out.track = IMPORT_UNASSIGNED_TRACK; warnings.push('track blank; set to Unassigned Track'); }
+  else if (!TRACKS.includes(out.track)) { warnings.push(`non-canonical track "${out.track}" imported as-is`); }
+  if (!out.status) { out.status = IMPORT_DEFAULT_STATUS; warnings.push('status blank; set to Not Started'); }
+  else if (!STATUSES.includes(out.status)) { warnings.push(`status "${out.status}" not a canonical status; stored as Not Started`); out.status = IMPORT_DEFAULT_STATUS; }
+  out.type = (out.type && ROW_TYPES.includes(out.type)) ? out.type : 'experiment';
+  return { importable: true, warnings, data: out };
 }
 
 function toImportRow(data) {
@@ -401,17 +420,19 @@ app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
     parsed = parseImportWorkbook(buffer);
   } catch (_) { return res.status(400).json({ error: 'failed to parse workbook' }); }
   if (parsed.error) return res.status(400).json({ error: parsed.error });
-  const valid_rows = [];
-  const invalid_rows = [];
+  const rows = [];
+  const skipped_rows = [];
+  let warning_count = 0;
   for (const { row_number, data } of parsed.rows) {
-    const errors = validateImportRow(data);
-    if (errors.length) invalid_rows.push({ row_number, errors, raw: data });
-    else valid_rows.push({ ...data, type: 'experiment' });
+    const c = classifyImportRow(data);
+    if (!c.importable) { skipped_rows.push({ row_number, reason: c.reason }); continue; }
+    warning_count += c.warnings.length;
+    rows.push({ row_number, warnings: c.warnings, data: c.data });
   }
   res.json({
-    summary: { sheet: parsed.sheet, total_rows: parsed.rows.length, valid_rows: valid_rows.length, invalid_rows: invalid_rows.length },
-    valid_rows,
-    invalid_rows,
+    summary: { sheet: parsed.sheet, total_rows: parsed.rows.length, importable_rows: rows.length, skipped_rows: skipped_rows.length, warning_count },
+    rows,
+    skipped_rows,
   });
 });
 
@@ -419,23 +440,24 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const { rows } = req.body || {};
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows array is required' });
-  const accepted = [];
-  const rejected = [];
-  rows.forEach((data, i) => {
-    const errors = validateImportRow(data || {});
-    if (errors.length) rejected.push({ index: i, errors });
-    else accepted.push(toImportRow(data));
-  });
   const ids = [];
-  for (const row of accepted) {
+  const skipped = [];
+  rows.forEach((raw, i) => {
+    const c = classifyImportRow(raw);
+    if (!c.importable) { skipped.push({ index: i, reason: c.reason }); return; }
+    const row = toImportRow(c.data);
     row.created_by = req.user.username;
     row.updated_by = req.user.username;
-    const keys = Object.keys(row);
-    const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
-      .run(...keys.map((k) => row[k]));
-    ids.push(Number(info.lastInsertRowid));
-  }
-  res.json({ ok: true, inserted_count: ids.length, ids, rejected_count: rejected.length, rejected });
+    try {
+      const keys = Object.keys(row);
+      const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
+        .run(...keys.map((k) => row[k]));
+      ids.push(Number(info.lastInsertRowid));
+    } catch (e) {
+      skipped.push({ index: i, reason: 'insert failed: ' + (e && e.message ? e.message : 'unknown error') });
+    }
+  });
+  res.json({ ok: true, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped });
 });
 
 const PORT = process.env.PORT || 3000;
