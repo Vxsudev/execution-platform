@@ -1,7 +1,7 @@
 // Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
 const state = {
-  user: null, fields: [], types: [], statuses: [], rows: [], editing: null,
+  user: null, fields: [], types: [], statuses: [], tracks: [], rows: [], editing: null,
   search: '', filters: { status: '', track: '', type: '' },
 };
 
@@ -46,6 +46,7 @@ async function init() {
     state.user = me.user;
     const schema = await api('/schema');
     state.fields = schema.fields; state.types = schema.types; state.statuses = schema.statuses;
+    state.tracks = schema.tracks || [];
     await loadRows();
     renderApp();
   } catch (_) {
@@ -89,9 +90,6 @@ function renderLogin(errMsg) {
 // ---------- app ----------
 function colLabel(key) { return (state.fields.find((f) => f.key === key) || {}).label || key; }
 
-function distinctTracks() {
-  return [...new Set(state.rows.map((r) => r.track).filter(Boolean))].sort();
-}
 
 function optionTags(values, current, labelFn) {
   return ['<option value="">All</option>'].concat(values.map((v) =>
@@ -112,7 +110,7 @@ function renderApp() {
     <div class="controls">
       <input id="searchInput" class="search" type="text" placeholder="Search…" value="${esc(state.search)}" />
       <select id="fStatus" title="Filter by status">${optionTags(state.statuses, state.filters.status)}</select>
-      <select id="fTrack" title="Filter by track">${optionTags(distinctTracks(), state.filters.track)}</select>
+      <select id="fTrack" title="Filter by track">${optionTags(state.tracks, state.filters.track)}</select>
       <select id="fType" title="Filter by type">${optionTags(state.types, state.filters.type, (t) => TYPE_LABEL[t] || t)}</select>
     </div>
     <div class="wrap">

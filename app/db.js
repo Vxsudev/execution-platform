@@ -14,12 +14,20 @@ try {
 
 const ROW_TYPES = ['experiment', 'work_item', 'task'];
 const STATUSES = ['Not Started', 'In Progress', 'Complete', 'Blocked', 'Inconclusive'];
+const TRACKS = [
+  'T1 AstraX Device',
+  'T2 AstraX Customer Cloud',
+  'T3 AstraX Ops Cloud',
+  'T4 Manufacturing partners',
+  'T5 Business',
+  'T6 Sales partner',
+];
 
 // field.key === DB column name. Order === display/form order (Sheet 2 contract,
 // `type` discriminator kept last). `help` text is drawn from Sheet 3 guidance.
 const ROW_FIELDS = [
   { key: 'owner',           label: 'Owner',                   input: 'text',     required: true,  help: 'Who owns this experiment.' },
-  { key: 'track',           label: 'Track',                   input: 'text',     required: true,  help: 'Select from T1 Device through T6 Sales. Links to the Jun–Nov roadmap.' },
+  { key: 'track',           label: 'Track',                   input: 'select',   options: TRACKS, required: true,  help: 'Select the astraX track this experiment belongs to. Links to the Jun–Nov roadmap.' },
   { key: 'title',           label: 'Experiment Title',        input: 'text',     required: true,  help: 'Short scannable name used in standups. Keep each atomic experiment under ~2 weeks.' },
   { key: 'function_area',   label: 'Function',                input: 'text' },
   { key: 'parent_item',     label: 'Parent Item',             input: 'text' },
@@ -79,11 +87,11 @@ if (db.prepare('SELECT COUNT(*) c FROM entries').get().c === 0) {
   const ins = db.prepare(`INSERT INTO entries
     (type,title,owner,track,function_area,hypothesis,success_criteria,status)
     VALUES (@type,@title,@owner,@track,@function_area,@hypothesis,@success_criteria,@status)`);
-  ins.run({ type: 'experiment', title: 'Sample experiment', owner: 'demo', track: 'T1 Device',
+  ins.run({ type: 'experiment', title: 'Sample experiment', owner: 'demo', track: 'T1 AstraX Device',
     function_area: 'Engineering', hypothesis: 'If we do X then Y because Z.',
     success_criteria: 'Baseline metric improves', status: 'Not Started' });
-  ins.run({ type: 'work_item', title: 'Sample work item', owner: 'demo', track: 'T2 Cloud',
+  ins.run({ type: 'work_item', title: 'Sample work item', owner: 'demo', track: 'T2 AstraX Customer Cloud',
     function_area: 'Software', hypothesis: null, success_criteria: null, status: 'In Progress' });
 }
 
-module.exports = { db, ROW_FIELDS, ROW_TYPES, STATUSES };
+module.exports = { db, ROW_FIELDS, ROW_TYPES, STATUSES, TRACKS };

@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { db, ROW_FIELDS, ROW_TYPES, STATUSES } = require('./db');
+const { db, ROW_FIELDS, ROW_TYPES, STATUSES, TRACKS } = require('./db');
 
 const app = express();
 app.use(express.json());
@@ -62,7 +62,7 @@ app.get('/api/me', (req, res) => {
   res.json({ user: u });
 });
 app.get('/api/schema', requireAuth, (req, res) => {
-  res.json({ fields: ROW_FIELDS, types: ROW_TYPES, statuses: STATUSES });
+  res.json({ fields: ROW_FIELDS, types: ROW_TYPES, statuses: STATUSES, tracks: TRACKS });
 });
 
 // ---- rows ----

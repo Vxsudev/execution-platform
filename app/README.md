@@ -46,6 +46,21 @@ The Excel workbook is the structure source only. Runtime data persists in `data.
 - **PUT `/api/rows/:id`** — partial updates are allowed; supplying a blank value for a required field returns HTTP 400. After merging with the existing row, all required fields must remain non-blank.
 - Error responses: `{ "error": "field is required" }` HTTP 400.
 
+## Track Taxonomy
+
+Track is a dropdown-only field (not free-text). The six canonical astraX tracks are:
+
+| ID | Track |
+|----|-------|
+| T1 | T1 AstraX Device |
+| T2 | T2 AstraX Customer Cloud |
+| T3 | T3 AstraX Ops Cloud |
+| T4 | T4 Manufacturing partners |
+| T5 | T5 Business |
+| T6 | T6 Sales partner |
+
+These values are defined in `db.js` as `TRACKS`, exposed via `GET /api/schema` as `tracks`, and used by both the filter dropdown and the create/edit form. Free-text track entry is not supported.
+
 ## Out of Scope (v1)
 
 - Escalation workflow
