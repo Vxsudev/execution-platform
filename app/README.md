@@ -58,7 +58,8 @@ Every row carries four server-controlled audit fields. The client cannot supply 
 | `updated_at` | On every update | Server timestamp (UTC) |
 | `updated_by` | On every update | Authenticated username from session |
 
-Audit fields are read-only. They are displayed in the table but are not editable in the create/edit form.
+Audit fields are read-only. They are accessible via the **Details** button on each row,
+which opens a small read-only panel. They do not appear as main table columns.
 
 ## Track Taxonomy
 

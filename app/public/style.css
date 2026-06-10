@@ -80,3 +80,7 @@ tr:hover td{background:var(--panel2)}
 .field .help{color:var(--muted);font-size:11px;line-height:1.4}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
 .error{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+.modal-sm{width:320px}
+.detail-list{margin:0 0 16px;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px}
+.detail-list dt{color:var(--muted)}
+.detail-list dd{margin:0;color:var(--text)}

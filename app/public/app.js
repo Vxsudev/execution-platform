@@ -8,11 +8,11 @@ const state = {
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
 const AUDIT_LABELS = { created_at: 'Created', updated_at: 'Updated', created_by: 'Created by', updated_by: 'Updated by' };
 
-// Table columns: 13 Sheet-2 contract columns in workbook order, audit metadata, then Type tag.
+// Table columns: 13 Sheet-2 contract columns in workbook order, then a compact Type tag column.
 const LIST_COLS = [
   'owner', 'track', 'title', 'function_area', 'parent_item', 'hypothesis',
   'design', 'success_criteria', 'target_end_date', 'dependencies', 'outcome',
-  'next_action', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at', 'type',
+  'next_action', 'status', 'type',
 ];
 // Long-text cells that get truncated with an ellipsis + full-text tooltip.
 const TRUNC_COLS = new Set(['hypothesis', 'design', 'success_criteria', 'outcome']);
@@ -166,6 +166,7 @@ function renderTable(rows) {
       return `<td>${esc(r[k])}</td>`;
     }).join('');
     return `<tr>${cells}<td><div class="row-actions">
+      <button class="icon-btn" data-info="${r.id}">Details</button>
       <button class="icon-btn" data-edit="${r.id}">Edit</button>
       <button class="icon-btn danger" data-del="${r.id}">Delete</button>
     </div></td></tr>`;
@@ -174,6 +175,8 @@ function renderTable(rows) {
 }
 
 function bindRowActions() {
+  document.querySelectorAll('[data-info]').forEach((b) =>
+    b.onclick = () => openDetails(state.rows.find((r) => r.id == b.dataset.info)));
   document.querySelectorAll('[data-edit]').forEach((b) =>
     b.onclick = () => openForm(state.rows.find((r) => r.id == b.dataset.edit)));
   document.querySelectorAll('[data-del]').forEach((b) =>
@@ -182,6 +185,31 @@ function bindRowActions() {
       await api('/rows/' + b.dataset.del, { method: 'DELETE' });
       await loadRows(); renderApp();
     });
+}
+
+// ---------- details modal ----------
+function openDetails(row) {
+  const fields = [
+    ['Created by', row.created_by || '—'],
+    ['Updated by', row.updated_by || '—'],
+    ['Created',    row.created_at || '—'],
+    ['Updated',    row.updated_at || '—'],
+  ];
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `
+    <div class="modal modal-sm">
+      <h2>${esc(row.title || 'Row details')}</h2>
+      <dl class="detail-list">
+        ${fields.map(([l, v]) => `<dt>${esc(l)}</dt><dd>${esc(v)}</dd>`).join('')}
+      </dl>
+      <div class="modal-actions">
+        <button class="btn ghost" id="closeDetailsBtn">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  back.addEventListener('mousedown', (e) => { if (e.target === back) back.remove(); });
+  back.querySelector('#closeDetailsBtn').onclick = () => back.remove();
 }
 
 // ---------- create / edit form ----------

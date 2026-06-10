@@ -387,3 +387,109 @@ VERIFICATION_REQUIRED → RELEASE_APPROVED after 5/5 invariant pass.
 | Persistence after restart | ✅ |
 | 5/5 invariants PASS | ✅ |
 | Surface audit clean | ✅ |
+
+---
+
+### 2026-06-10
+
+### Feature
+
+ux-table-hardening-v1
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/ux-table-hardening-v1.md
+
+### Tasks
+
+
+- tasks/ux-table-hardening-v1-001.md [frontend]
+- tasks/ux-table-hardening-v1-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-10T09:44:31Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## 2026-06-10 — ux-table-hardening-v1
+
+### Feature
+
+ux-table-hardening-v1
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/ux-table-hardening-v1.md
+
+### Tasks
+
+- tasks/ux-table-hardening-v1-001.md [frontend]
+- tasks/ux-table-hardening-v1-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-10T09:43:21Z.
+All 2 tasks completed. Verification passed.
+
+**UX decision**: Audit metadata (created_by, updated_by, created_at, updated_at) was added to the
+default LIST_COLS in the prior `data-model-audit-trail` capability. This pushed the table from 14 to
+18 columns, cluttering the daily execution scan. This capability moves audit metadata behind a
+per-row "Details" button. The 4 execution-focused columns (owner through type) remain at 14.
+
+**Details modal**: Reuses existing `.modal-back`, `.modal`, `.modal-actions`, `.btn.ghost` CSS
+classes. New `.modal-sm` narrows the modal to 320px (appropriate for 4 label/value pairs).
+New `.detail-list` provides a 2-column definition-list grid using existing CSS custom properties
+(--muted, --text). Zero new design tokens or component patterns introduced.
+
+**AUDIT_LABELS preserved**: The `AUDIT_LABELS` constant and updated `colLabel()` from the prior
+capability remain intact and are used by `openDetails()`. No orphaned code.
+
+**openDetails() is read-only**: No `data-k` inputs, no `querySelectorAll('[data-k]')`, no save
+action. The only interactive control is the Close button.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+### Invariant Status
+
+5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Server boots | ✅ |
+| LIST_COLS back to 14 (no audit columns) | ✅ |
+| AUDIT_LABELS still present | ✅ |
+| Details button and [data-info] binding | ✅ |
+| openDetails() renders read-only audit fields | ✅ |
+| .modal-sm and .detail-list in style.css | ✅ |
+| Required-field regression: 400 owner is required | ✅ |
+| Track enum regression: 400 invalid track | ✅ |
+| Audit stamping: POST → created_by=admin | ✅ |
+| README updated to mention Details button | ✅ |
+| 5/5 invariants PASS | ✅ |
+| Surface audit clean | ✅ |
