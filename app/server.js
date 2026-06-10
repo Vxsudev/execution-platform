@@ -88,10 +88,13 @@ function validate(data, partial, existingRow) {
       for (const field of REQUIRED_FIELDS) {
         if (!merged[field] || !String(merged[field]).trim()) return `${field} is required`;
       }
+      if (merged.track !== undefined && !TRACKS.includes(String(merged.track || '')))
+        return 'invalid track';
     }
   }
   if (data.type !== undefined && !ROW_TYPES.includes(data.type)) return 'invalid type';
   if (data.status !== undefined && !STATUSES.includes(data.status)) return 'invalid status';
+  if (data.track !== undefined && !TRACKS.includes(data.track)) return 'invalid track';
   return null;
 }
 

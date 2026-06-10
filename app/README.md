@@ -44,6 +44,7 @@ The Excel workbook is the structure source only. Runtime data persists in `data.
 
 - **POST `/api/rows`** — required fields: `title`, `owner`, `track`, `status` (all must be non-blank). Missing or blank required field returns HTTP 400.
 - **PUT `/api/rows/:id`** — partial updates are allowed; supplying a blank value for a required field returns HTTP 400. After merging with the existing row, all required fields must remain non-blank.
+- `track` must be one of: T1 AstraX Device, T2 AstraX Customer Cloud, T3 AstraX Ops Cloud, T4 Manufacturing partners, T5 Business, T6 Sales partner. Other values return HTTP 400.
 - Error responses: `{ "error": "field is required" }` HTTP 400.
 
 ## Track Taxonomy
