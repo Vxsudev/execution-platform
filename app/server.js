@@ -13,6 +13,34 @@ const SID = 'sid';
 const FIELD_KEYS = ROW_FIELDS.map(f => f.key);
 const REQUIRED_FIELDS = ROW_FIELDS.filter(f => f.required).map(f => f.key);
 
+const SESSION_SECRET = process.env.SESSION_SECRET ||
+  (process.env.NODE_ENV === 'production' ? null : 'dev-insecure-fallback-do-not-use-in-production');
+if (!SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET environment variable is required in production mode.');
+  process.exit(1);
+}
+if (process.env.NODE_ENV === 'production' && SESSION_SECRET.length < 32) {
+  console.error('FATAL: SESSION_SECRET must be at least 32 characters in production mode.');
+  process.exit(1);
+}
+
+function signToken(token) {
+  return token + '.' + crypto.createHmac('sha256', SESSION_SECRET).update(token).digest('hex');
+}
+function verifyToken(signed) {
+  if (typeof signed !== 'string') return null;
+  const dot = signed.lastIndexOf('.');
+  if (dot < 0) return null;
+  const token = signed.slice(0, dot);
+  const sig = signed.slice(dot + 1);
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(token).digest('hex');
+  if (sig.length !== 64) return null;
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  } catch (_) { return null; }
+  return token;
+}
+
 function parseCookies(req) {
   const out = {};
   const h = req.headers.cookie;
@@ -24,7 +52,8 @@ function parseCookies(req) {
   return out;
 }
 function currentUser(req) {
-  const token = parseCookies(req)[SID];
+  const signed = parseCookies(req)[SID];
+  const token = verifyToken(signed);
   if (!token) return null;
   return db.prepare(
     'SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
@@ -47,11 +76,18 @@ app.post('/api/login', (req, res) => {
   }
   const token = crypto.randomBytes(32).toString('hex');
   db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
-  res.cookie(SID, token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 3600 * 1000 });
+  res.cookie(SID, signToken(token), {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 3600 * 1000,
+    secure: process.env.NODE_ENV === 'production',
+  });
   res.json({ user: { id: user.id, username: user.username } });
 });
 app.post('/api/logout', (req, res) => {
-  const token = parseCookies(req)[SID];
+  const signed = parseCookies(req)[SID];
+  const token = verifyToken(signed);
   if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
   res.clearCookie(SID, { path: '/' });
   res.json({ ok: true });

@@ -76,6 +76,35 @@ Track is a dropdown-only field (not free-text). The six canonical astraX tracks 
 
 These values are defined in `db.js` as `TRACKS`, exposed via `GET /api/schema` as `tracks`, and used by both the filter dropdown and the create/edit form. Free-text track entry is not supported.
 
+## Production Environment
+
+### Environment Variables
+
+| Variable | Required in Production | Description |
+|----------|----------------------|-------------|
+| `SESSION_SECRET` | **Yes** | Cryptographic signing key for session tokens. Min 32 chars. Boot fails if absent. |
+| `NODE_ENV` | Yes (set to `production`) | Controls demo seed, cookie security, and startup checks. |
+| `PORT` | No | Server port. Defaults to 3000. |
+
+Generate a secret:
+
+    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Copy `app/.env.example` to `app/.env` and fill in values. Load before starting the server.
+
+### Production Safety
+
+- `NODE_ENV=production` + missing or weak `SESSION_SECRET` → boot refuses immediately.
+- Demo credentials (`admin/admin123`, `vasu/vasu123`) are **not seeded** in production.
+  If the database has no users, a warning is logged. Create users before accepting connections.
+- Session cookies use `Secure` flag in production (HTTPS only).
+- Session cookies are always `HttpOnly` and `SameSite=Lax`.
+
+### Local Development
+
+No env vars required for local development. Demo credentials are seeded automatically on
+first boot. Run `npm start` from the `app/` directory.
+
 ## Out of Scope (v1)
 
 - Escalation workflow

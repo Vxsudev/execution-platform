@@ -30,5 +30,9 @@
   "ux-table-hardening-v1": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-10T09:44:31Z"
+  },
+  "auth-hardening-v1": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-10T10:05:00Z"
   }
 }

@@ -79,11 +79,14 @@ try { db.exec("ALTER TABLE entries ADD COLUMN created_by TEXT;"); } catch (_) {}
 try { db.exec("ALTER TABLE entries ADD COLUMN updated_by TEXT;"); } catch (_) {}
 
 
-// Seed users (change these in production).
-if (db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
+// Seed demo users only in non-production environments.
+if (process.env.NODE_ENV !== 'production' && db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
   const ins = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
   ins.run('admin', bcrypt.hashSync('admin123', 10));
   ins.run('vasu',  bcrypt.hashSync('vasu123', 10));
+}
+if (process.env.NODE_ENV === 'production' && db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
+  console.warn('WARNING: No users exist in the database. See README for production setup instructions.');
 }
 
 // Seed generic illustrative rows to show row shape (not production data).

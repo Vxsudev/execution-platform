@@ -493,3 +493,60 @@ None.
 | README updated to mention Details button | ✅ |
 | 5/5 invariants PASS | ✅ |
 | Surface audit clean | ✅ |
+
+---
+
+## 2026-06-10 — auth-hardening-v1
+
+**State:** RELEASE_APPROVED
+**Spec:** specs/auth-hardening-v1.md
+**Recon:** ai/recon/auth-hardening-v1-recon.md
+**Tasks:** auth-hardening-v1-001 (database), auth-hardening-v1-002 (backend), auth-hardening-v1-003 (verification)
+
+### Summary
+
+Hardened the session/auth layer for client demo and deployment readiness without introducing external dependencies or changing product scope.
+
+**db.js:** Demo credential seeding (`admin/admin123`, `vasu/vasu123`) is now gated on `NODE_ENV !== 'production'`. A warning is emitted in production if the database has no users.
+
+**server.js:**
+- `SESSION_SECRET` is read from env. Dev fallback applied when `NODE_ENV` is not `production`. In production: boot fails (FATAL) if absent or < 32 characters.
+- `signToken(token)` — appends HMAC-SHA256 over the raw session token using SESSION_SECRET.
+- `verifyToken(signed)` — validates HMAC with `crypto.timingSafeEqual()` before DB lookup. Returns raw token or null.
+- `currentUser()` — calls `verifyToken()` before querying sessions table.
+- Login cookie — value is `signToken(token)`; adds `secure: NODE_ENV === 'production'`.
+- Logout — calls `verifyToken()` before DB delete; null cookie handled safely.
+
+**app/.env.example:** New file documenting `SESSION_SECRET`, `NODE_ENV`, and `PORT` with generation instructions.
+
+**app/README.md:** Added "## Production Environment" section with env var table, secret generation command, and production safety notes.
+
+### Key Design Decisions
+
+- No `dotenv` dependency: env vars loaded externally (shell, docker-compose, process manager). Consistent with existing zero-dep philosophy.
+- HMAC signing adds server-identity verification before DB round-trip; does not change the session storage model.
+- `timingSafeEqual` with length guard (`sig.length !== 64`) prevents timing oracle on HMAC comparison.
+- Existing logged-in sessions invalidated on restart — expected and acceptable for auth hardening.
+
+### Invariant Status
+
+5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Local dev boots without SESSION_SECRET | ✅ |
+| Login cookie contains dot (token.hmac format) | ✅ |
+| GET /api/me 200 with cookie | ✅ |
+| GET /api/rows 200 with cookie, 401 without | ✅ |
+| POST /api/rows stamps created_by = admin | ✅ |
+| Logout invalidates session (me → 401) | ✅ |
+| Required-field regression: 400 owner is required | ✅ |
+| Track enum regression: 400 invalid track | ✅ |
+| NODE_ENV=production, missing SECRET → FATAL exit | ✅ |
+| NODE_ENV=production, SECRET < 32 chars → FATAL exit | ✅ |
+| NODE_ENV=production, valid SECRET → boots | ✅ |
+| Production login cookie has Secure attribute | ✅ |
+| 5/5 invariants PASS | ✅ |
+| Surface audit clean (no public/, prototypes/, sdlc/ changes) | ✅ |
