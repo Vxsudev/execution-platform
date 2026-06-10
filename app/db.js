@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS entries (
 try { db.exec("ALTER TABLE entries ADD COLUMN created_by TEXT;"); } catch (_) {}
 try { db.exec("ALTER TABLE entries ADD COLUMN updated_by TEXT;"); } catch (_) {}
 
+try { db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'viewer';"); } catch (_) {}
+try { db.exec("ALTER TABLE users ADD COLUMN track_scope TEXT DEFAULT NULL;"); } catch (_) {}
 
 // Seed demo users only in non-production environments.
 if (process.env.NODE_ENV !== 'production' && db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
@@ -87,6 +89,12 @@ if (process.env.NODE_ENV !== 'production' && db.prepare('SELECT COUNT(*) c FROM 
 }
 if (process.env.NODE_ENV === 'production' && db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
   console.warn('WARNING: No users exist in the database. See README for production setup instructions.');
+}
+
+// Backfill demo user roles after seed so the UPDATE finds existing rows on fresh boot.
+if (process.env.NODE_ENV !== 'production') {
+  db.exec("UPDATE users SET role = 'admin' WHERE username = 'admin' AND (role IS NULL OR role = 'viewer');");
+  db.exec("UPDATE users SET role = 'track_owner', track_scope = '[\"T3 AstraX Ops Cloud\"]' WHERE username = 'vasu' AND (role IS NULL OR role = 'viewer');");
 }
 
 // Seed generic illustrative rows to show row shape (not production data).

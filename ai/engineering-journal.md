@@ -550,3 +550,91 @@ Hardened the session/auth layer for client demo and deployment readiness without
 | Production login cookie has Secure attribute | ✅ |
 | 5/5 invariants PASS | ✅ |
 | Surface audit clean (no public/, prototypes/, sdlc/ changes) | ✅ |
+
+---
+
+## 2026-06-10 — phase-2-roles-permissions
+
+**Capability:** P2-1 Roles & Permissions Backend
+**Feature slug:** phase-2-roles-permissions
+**Branch:** main
+**Phase:** phase-build
+**Spec:** specs/phase-2-roles-permissions.md
+**Recon:** ai/recon/phase-2-team-operating-model-full-spec-recon.md
+
+**Tasks executed:**
+- tasks/phase-2-roles-permissions-001.md [database] — ALTER TABLE users + backfill
+- tasks/phase-2-roles-permissions-002.md [backend] — permission helpers + currentUser + route guards
+- tasks/phase-2-roles-permissions-003.md [verification] — full smoke test
+
+**Files modified:**
+- app/db.js — role + track_scope migration + backfill (bug fix applied post-supervisor)
+- app/server.js — parseScope, permission helpers, extended currentUser SELECT, /api/me, route guards
+- ai/state_registry.json — RELEASE_APPROVED
+- ai/engineering-journal.md — appended
+
+**Operator decisions applied:**
+- Track reassignment rule: STRICT — track_owner PUT must own both existing.track AND new track
+
+**DB migration:**
+- `ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'viewer'` (idempotent try/catch)
+- `ALTER TABLE users ADD COLUMN track_scope TEXT DEFAULT NULL` (idempotent try/catch)
+- Backfill: admin → role='admin'; vasu → role='track_owner', track_scope='["T3 AstraX Ops Cloud"]'
+- Backfill placed AFTER seed INSERT to ensure rows exist on fresh boot (bug fix)
+- Backfill gated on NODE_ENV !== 'production'; idempotent condition (role IS NULL OR role = 'viewer')
+
+**Permission helpers (server.js):**
+- parseScope(user): JSON.parse(track_scope) with [] fallback on error
+- canCreateRow(user, track): admin=true; track_owner checks scope.includes(track); viewer=false
+- canEditRow(user, existingRow, nextTrack): admin=true; track_owner checks existing.track ∈ scope; if nextTrack differs, nextTrack must also ∈ scope (strict rule)
+- canDeleteRow(user): admin only
+- canImport(user), canManageUsers(user): admin only
+
+**Route guards:**
+- POST /api/rows: canCreateRow after validate() → 403 if false
+- PUT /api/rows/:id: canEditRow with nextTrack derived from payload diff → 403 if false
+- DELETE /api/rows/:id: canDeleteRow → 403 if false
+- GET routes unchanged (requireAuth only — all authenticated users view all rows)
+
+**/api/me extended:**
+- Now returns: { user: { id, username, role, track_scope: [...] } }
+- track_scope serialized as parsed array (not raw JSON string)
+- role comes through via ...u spread from extended currentUser() SELECT
+
+**Bug found and fixed:**
+- Task-001 worker placed backfill UPDATE before seed INSERT; fresh-boot produced role='viewer' for admin/vasu
+- Fix: moved backfill block to after both seed blocks in db.js; re-verified on strict fresh boot
+
+**Invariant Status:** 5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+**Verification Results (all on fresh boot after bug fix):**
+
+| Check | Result |
+|-------|--------|
+| Admin /api/me → role:'admin', track_scope:[] | ✅ |
+| Vasu /api/me → role:'track_owner', track_scope:['T3 AstraX Ops Cloud'] | ✅ |
+| Admin POST T1 AstraX Device → 201 | ✅ |
+| Admin POST T5 Business → 201 | ✅ |
+| Admin PUT row → 200 | ✅ |
+| Admin DELETE row → 200 | ✅ |
+| Vasu GET /api/rows → 200 | ✅ |
+| Vasu POST T3 AstraX Ops Cloud → 201 | ✅ |
+| Vasu POST T1 AstraX Device → 403 Forbidden | ✅ |
+| Vasu PUT T3 row (no track change) → 200 | ✅ |
+| Vasu PUT T5 row → 403 Forbidden | ✅ |
+| Vasu PUT T3→T1 reassignment (strict) → 403 Forbidden | ✅ |
+| Vasu DELETE → 403 Forbidden | ✅ |
+| Viewer GET → 200 | ✅ |
+| Viewer POST → 403 Forbidden | ✅ |
+| Viewer PUT → 403 Forbidden | ✅ |
+| Viewer DELETE → 403 Forbidden | ✅ |
+| POST missing owner → 400 'owner is required' | ✅ |
+| POST invalid track → 400 'invalid track' | ✅ |
+| Audit stamping: created_by = 'admin' | ✅ |
+| Invariants 5/5 PASS | ✅ |
+| Surface audit: app/public/ untouched | ✅ |
+
+**Unresolved risks carried to P2-2:**
+- Frontend still shows Edit/Delete buttons for all users regardless of role — P2-2 scope
+- No viewer seed in production — admin creates users via P2-3 (accepted)
+- No session expiry — carried from Phase 1, not P2-1 scope

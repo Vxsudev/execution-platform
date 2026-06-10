@@ -13,6 +13,26 @@ const SID = 'sid';
 const FIELD_KEYS = ROW_FIELDS.map(f => f.key);
 const REQUIRED_FIELDS = ROW_FIELDS.filter(f => f.required).map(f => f.key);
 
+function parseScope(user) {
+  try { return JSON.parse(user.track_scope || '[]'); } catch (_) { return []; }
+}
+function canCreateRow(user, track) {
+  if (user.role === 'admin') return true;
+  if (user.role === 'track_owner') return parseScope(user).includes(track);
+  return false;
+}
+function canEditRow(user, existingRow, nextTrack) {
+  if (user.role === 'admin') return true;
+  if (user.role !== 'track_owner') return false;
+  const scope = parseScope(user);
+  if (!scope.includes(existingRow.track)) return false;
+  if (nextTrack !== undefined && nextTrack !== existingRow.track && !scope.includes(nextTrack)) return false;
+  return true;
+}
+function canDeleteRow(user)   { return user.role === 'admin'; }
+function canImport(user)      { return user.role === 'admin'; }
+function canManageUsers(user) { return user.role === 'admin'; }
+
 const SESSION_SECRET = process.env.SESSION_SECRET ||
   (process.env.NODE_ENV === 'production' ? null : 'dev-insecure-fallback-do-not-use-in-production');
 if (!SESSION_SECRET) {
@@ -56,7 +76,7 @@ function currentUser(req) {
   const token = verifyToken(signed);
   if (!token) return null;
   return db.prepare(
-    'SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
+    'SELECT u.id, u.username, u.role, u.track_scope FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
   ).get(token) || null;
 }
 function requireAuth(req, res, next) {
@@ -95,7 +115,7 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', (req, res) => {
   const u = currentUser(req);
   if (!u) return res.status(401).json({ error: 'Not authenticated' });
-  res.json({ user: u });
+  res.json({ user: { ...u, track_scope: parseScope(u) } });
 });
 app.get('/api/schema', requireAuth, (req, res) => {
   res.json({ fields: ROW_FIELDS, types: ROW_TYPES, statuses: STATUSES, tracks: TRACKS });
@@ -147,6 +167,7 @@ app.post('/api/rows', requireAuth, (req, res) => {
   if (!data.type) data.type = 'experiment';
   const err = validate(data, false, null);
   if (err) return res.status(400).json({ error: err });
+  if (!canCreateRow(req.user, data.track)) return res.status(403).json({ error: 'Forbidden' });
   data.created_by = req.user.username;
   data.updated_by = req.user.username;
   const keys = Object.keys(data);
@@ -158,6 +179,8 @@ app.put('/api/rows/:id', requireAuth, (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const data = sanitize(req.body || {});
+  const nextTrack = (data.track !== undefined && data.track !== existing.track) ? data.track : undefined;
+  if (!canEditRow(req.user, existing, nextTrack)) return res.status(403).json({ error: 'Forbidden' });
   const err = validate(data, true, existing);
   if (err) return res.status(400).json({ error: err });
   const keys = Object.keys(data);
@@ -168,6 +191,7 @@ app.put('/api/rows/:id', requireAuth, (req, res) => {
   res.json({ row: db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id) });
 });
 app.delete('/api/rows/:id', requireAuth, (req, res) => {
+  if (!canDeleteRow(req.user)) return res.status(403).json({ error: 'Forbidden' });
   db.prepare('DELETE FROM entries WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
