@@ -1,3 +1,30 @@
+# Task: Add the Basic Dashboard view to the frontend
+
+## Parent Spec
+specs/phase-2-basic-dashboard.md
+
+## Phase
+phase-build
+
+## Status
+done
+
+## Layer
+frontend
+
+## Description
+Add the execution-health Dashboard, computed in-browser from `state.rows`. Modify ONLY
+`app/public/app.js`, `app/public/style.css`, `app/README.md`. Do NOT modify server.js,
+db.js, package.json, or index.html. No new API call beyond the existing `GET /api/rows`.
+
+### Step 1 — Replace app/public/app.js with the exact content below
+Use the Write tool to overwrite `/Users/vasudevarao/execution-platform/app/public/app.js`
+with EXACTLY this content. It adds `state.page === 'dashboard'`, universal Rows/Dashboard
+topbar tabs (track-owner workspace tabs scoped to Rows view), and a `// ---------- dashboard ----------`
+section (`isClosed`/`isOpen`/`byCount`/`parseDateSafe`/`blockedRows`/`overdueRows`/`recentRows`/
+`openNextActions`/`dashStats`/`renderDashboard`). All existing rows/users/import/login behavior is preserved.
+
+```javascript
 // Frontend SPA: login, dense Excel-like table, search/filter, create/edit rows.
 const $app = document.getElementById('app');
 const state = {
@@ -679,3 +706,56 @@ function openForm(row) {
     } catch (e) { back.querySelector('#formErr').textContent = e.message; }
   };
 }
+```
+
+### Step 2 — Append dashboard styles to app/public/style.css
+Append to the END of `app/public/style.css`:
+
+```css
+.dash{padding:14px 0;display:grid;gap:14px}
+.dash-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--text)}
+.stat-chips{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;min-width:80px;text-align:center;padding:10px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
+.stat .n{font-size:22px;font-weight:700;color:var(--text)}
+.stat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.count-list{display:flex;flex-direction:column;gap:7px}
+.count-row{display:flex;align-items:center;gap:10px;font-size:12.5px}
+.count-row .count-label{flex:0 0 38%;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count-row .bar{flex:1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.count-row .bar i{display:block;height:100%;background:var(--accent2)}
+.count-row .chip{flex:0 0 auto;min-width:22px;text-align:center;padding:1px 7px;border-radius:10px;background:var(--accent2);color:#fff;font-size:11.5px;font-weight:600}
+.dash .empty-mini{color:var(--muted);font-size:12px;padding:6px 0}
+.dash table{width:100%;border-collapse:collapse;font-size:12px}
+.dash th,.dash td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text)}
+.dash th{color:var(--muted);font-weight:600}
+```
+
+### Step 3 — Add a README section
+In `app/README.md`, add a `## Basic Dashboard (Phase 2)` section stating: it is computed
+from the database rows already loaded in the browser (`state.rows`, no new endpoint); all
+authenticated users (admin, track_owner, viewer) can view it; it uses the actual stored
+track/status labels including imported shorthand and does NOT normalize the taxonomy; and
+it does NOT create any workflow/approval state — it is a read-only execution-health surface.
+
+### Step 4 — Syntax check
+```bash
+cd /Users/vasudevarao/execution-platform/app
+node --check public/app.js && echo "app.js syntax OK"
+```
+
+## Acceptance Criteria
+- [ ] `state.page` supports `'dashboard'`; universal Rows/Dashboard tabs; workspace tabs scoped to Rows view; New-row button only in Rows view.
+- [ ] `renderDashboard` + helpers present; all 8 widgets render; sections render even when empty.
+- [ ] Track/status grouping uses actual stored values (no canonicalization); blank/garbage dates do not crash.
+- [ ] `node --check public/app.js` passes; rows/users/import/login behavior unchanged.
+- [ ] Only `app/public/app.js`, `app/public/style.css`, `app/README.md` modified.
+
+## Files Likely Affected
+- app/public/app.js
+- app/public/style.css
+- app/README.md
+
+## Blocked By
+- tasks/phase-2-basic-dashboard-001.md

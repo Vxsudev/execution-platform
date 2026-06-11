@@ -132,6 +132,23 @@ admin-only regardless of workspace.
 **Note:** Frontend controls are UX convenience only. Backend route guards (P2-1) enforce
 the same rules and will reject unauthorized raw API calls regardless of frontend state.
 
+## Basic Dashboard (Phase 2)
+
+A **Dashboard** view sits alongside the **Rows** view via universal topbar tabs.
+
+- **Computed in the browser.** The dashboard is derived entirely from `state.rows` —
+  the rows already loaded via `GET /api/rows`. There is no new endpoint, no DB change,
+  and no package change. Opening the tab reloads rows first for freshness.
+- **Visible to everyone authenticated.** All roles — admin, track_owner, and viewer —
+  can view the dashboard. It is not gated.
+- **Preserves real imported data.** Grouping (by status, track, owner) uses the **actual
+  stored labels**, including imported shorthand track names (e.g. `T1-Device` is shown
+  as-is). The dashboard does **not** normalize or canonicalize the taxonomy, and it
+  tolerates blank or malformed `target_end_date` values without crashing.
+- **Read-only execution-health surface.** It surfaces totals, status/track/owner
+  breakdowns, blocked items, overdue/target-risk items, recently updated rows, and open
+  next actions. It does **not** create any workflow, approval, or escalation state.
+
 ## Audit Metadata
 
 Every row carries four server-controlled audit fields. The client cannot supply or override them.
