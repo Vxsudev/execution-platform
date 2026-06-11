@@ -859,3 +859,50 @@ None.
 ### Incidents
 
 None.
+
+---
+
+## 2026-06-12 — phase-2-review-checkpoint
+
+**Capability:** Phase 2 Review Checkpoint (P2-6)
+**Feature slug:** phase-2-review-checkpoint
+**Branch:** main
+**Phase:** phase-build
+**Spec:** specs/phase-2-review-checkpoint.md
+**Recon:** ai/recon/phase-2-review-checkpoint-recon.md
+
+**Tasks executed:**
+- tasks/phase-2-review-checkpoint-001.md [database] — State registry audit, spec/task coverage, git log, invariants pre-gate
+- tasks/phase-2-review-checkpoint-002.md [backend] — Full runtime regression smoke test (20/20 PASS)
+- tasks/phase-2-review-checkpoint-003.md [frontend] — Import coverage audit, root cause documentation
+- tasks/phase-2-review-checkpoint-004.md [verification] — Compiled demo-readiness report, P3 carry-forward, post-execution invariants, state RELEASE_APPROVED
+
+**Files modified:**
+- `ai/recon/phase-2-review-checkpoint-recon.md` — created (recon only; no app code)
+- `ai/reports/phase-2-review-checkpoint-report.md` — created (full Phase 2 review report)
+- `ai/state_registry.json` — phase-2-review-checkpoint advanced to RELEASE_APPROVED
+- `ai/engineering-journal.md` — appended
+
+**No app code modified:**
+- app/server.js, app/db.js, app/public/app.js, app/public/style.css, app/public/index.html, app/package.json, app/package-lock.json — all unchanged (confirmed by git diff)
+
+**Verification results:**
+- State registry: all 6 Phase 2 features = RELEASE_APPROVED ✓
+- Smoke tests: 20/20 PASS (admin / track_owner / anon / CRUD strict / frontend assets)
+- Post-execution invariants: 5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+- App code integrity: git diff clean on all protected files ✓
+
+**Demo-readiness verdict:** DEMO-READY with known limitations (T2-T6 data gap in workbook; no import batch management)
+
+**P3 carry-forward:**
+1. Import Batch Management — `imports` table + `entries.import_batch_id` + `DELETE /api/imports/:id` (HIGH)
+2. Full Workbook Capture — multi-sheet ingestion for T2-T6 coverage (MEDIUM)
+3. Duplicate Detection — (title + owner + track) dedup on commit (MEDIUM)
+4. Viewer Provenance Context — show import_batch_id in row details modal (LOW)
+
+**Invariant Status:** 5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+**Unresolved risks carried to P3:**
+- No import_batch_id: committed rows can't be bulk-reverted by batch (HIGH — P3-1 priority)
+- T2-T6 data not in workbook yet: importable_rows always T1-only until team populates 'All Experiment Summary' (MEDIUM — operator awareness)
+- Re-import creates duplicates: no dedup mechanism (MEDIUM — P3-3 priority)

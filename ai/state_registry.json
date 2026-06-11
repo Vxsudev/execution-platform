@@ -58,5 +58,9 @@
   "phase-2-basic-dashboard": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-11T21:44:02Z"
+  },
+  "phase-2-review-checkpoint": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-12T00:00:00Z"
   }
 }
