@@ -62,5 +62,9 @@
   "phase-2-review-checkpoint": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-12T00:00:00Z"
+  },
+  "phase-3-recon-dag-map": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-12T06:00:00Z"
   }
 }
