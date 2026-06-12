@@ -66,5 +66,9 @@
   "phase-3-recon-dag-map": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-12T06:00:00Z"
+  },
+  "phase-3-import-batch-ledger": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-12T08:08:36Z"
   }
 }

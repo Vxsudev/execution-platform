@@ -906,3 +906,65 @@ None.
 - No import_batch_id: committed rows can't be bulk-reverted by batch (HIGH — P3-1 priority)
 - T2-T6 data not in workbook yet: importable_rows always T1-only until team populates 'All Experiment Summary' (MEDIUM — operator awareness)
 - Re-import creates duplicates: no dedup mechanism (MEDIUM — P3-3 priority)
+
+---
+
+## P3-1: Import Batch Ledger
+
+**Date:** 2026-06-12
+**Branch:** main
+**Slug:** phase-3-import-batch-ledger
+**State:** RELEASE_APPROVED
+
+**Files modified:**
+- app/db.js — added `imports` table (CREATE TABLE IF NOT EXISTS) + 3 additive ALTER TABLE entries (import_batch_id, import_source_sheet, import_source_row)
+- app/server.js — updated POST /api/import/commit to accept {filename, sheet, rows:[{data,row_number}]}, create imports batch record, stamp entries with batch metadata; added GET /api/imports (admin-only)
+- app/public/app.js — added state.imports, state.importFilename, loadImports(), Import History section in renderImportPanel(), updated commit payload, loadImports() call on tab entry and after commit
+- app/README.md — added Import Batch Ledger section
+- ai/state_registry.json — phase-3-import-batch-ledger → RELEASE_APPROVED
+
+**Schema changes:**
+- NEW TABLE: imports (id, filename, imported_by, imported_at, total_rows, importable_rows, skipped_rows, warning_count, status)
+- NEW COLUMNS (entries): import_batch_id INTEGER DEFAULT NULL, import_source_sheet TEXT DEFAULT NULL, import_source_row INTEGER DEFAULT NULL
+- Existing rows: all three new columns = NULL (no backfill)
+- Additive migration via try/catch ALTER TABLE pattern (idempotent)
+
+**Backend route changes:**
+- POST /api/import/commit: extended body shape, batch record creation, entry metadata stamping, batch_id in response
+- GET /api/imports: new route, admin-only, returns all batches newest first
+
+**Frontend import history behavior:**
+- Import History section renders in Import tab (admin only)
+- "No imports yet" empty state
+- Batch table: id, filename, imported_by, date, rows, warnings, status
+- loadImports() fires on tab entry and after commit
+- No delete button (P3-2 scope)
+
+**Smoke test results (18/18 PASS):**
+- Syntax checks (server.js, app.js): PASS
+- GET /api/imports anon → 401: PASS
+- GET /api/imports track_owner → 403: PASS
+- GET /api/imports admin → 200: PASS
+- POST /api/import/preview → unchanged: PASS
+- POST /api/import/commit → 200 with batch_id: PASS
+- imports table: 1 row after commit: PASS
+- 19 entries with import_batch_id set: PASS
+- 19 entries with import_source_sheet set: PASS
+- 19 entries with import_source_row set: PASS
+- smoke_owner row: import_batch_id = NULL (unaffected): PASS
+- commit missing filename → 400: PASS
+- manual POST /api/rows → import_batch_id = NULL: PASS
+- P2 RBAC flows (admin/vasu/anon): PASS
+- Self-demote/delete guard: PASS
+- Invariant engine 5/5 PASS: PASS
+- README section: PASS
+- Test data cleaned from live DB: PASS
+
+**Invariant status:** 5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+**Unresolved risks:**
+- No DELETE /api/imports/:id yet — import data cannot be bulk-reverted (P3-2 planned next)
+- No duplicate detection — re-import same workbook creates duplicates (P3-3 planned)
+- No import provenance in row details modal (P3-5 planned)
+
+**P3-2 dependency created:** DELETE /api/imports/:id requires imports.id (now available) + entries.import_batch_id (now available). P3-2 is unblocked.

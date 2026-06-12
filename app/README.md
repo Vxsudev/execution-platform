@@ -207,6 +207,44 @@ Copy `app/.env.example` to `app/.env` and fill in values. Load before starting t
 No env vars required for local development. Demo credentials are seeded automatically on
 first boot. Run `npm start` from the `app/` directory.
 
+## Import Batch Ledger (Phase 3)
+
+Every import commit creates a permanent record in the `imports` table:
+
+| Column | Description |
+|--------|-------------|
+| `id` | Auto-increment batch identifier |
+| `filename` | Original `.xlsx` filename |
+| `imported_by` | Admin username who ran the commit |
+| `imported_at` | Server UTC timestamp of the commit |
+| `total_rows` | Total rows received in the commit payload |
+| `importable_rows` | Rows successfully inserted |
+| `skipped_rows` | Rows rejected (blank title) |
+| `warning_count` | Total warnings across all rows |
+| `status` | Always `complete` for now |
+
+### Entry provenance fields
+
+Imported entries carry three extra columns that link them back to the originating batch:
+
+| Column | Description |
+|--------|-------------|
+| `import_batch_id` | FK to `imports.id`; `NULL` for manually created rows |
+| `import_source_sheet` | Worksheet name from the workbook |
+| `import_source_row` | 1-indexed spreadsheet row number |
+
+**Manual entries** created via `POST /api/rows` always have `import_batch_id = NULL`. Old entries (created before Phase 3) also retain `import_batch_id = NULL` — no backfill is performed.
+
+### Import History (admin only)
+
+`GET /api/imports` — returns the full batch list, newest first. Only admins can call this endpoint; track owners and viewers receive `403 Forbidden`.
+
+The **Import tab** in the UI shows the Import History table below the upload form after any imports have been committed.
+
+### Delete import batch
+
+Planned for Phase 3-2 (not yet available). Batch records and their associated entries cannot be deleted through the UI or API in this version.
+
 ## Out of Scope (v1)
 
 - Escalation workflow

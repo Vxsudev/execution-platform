@@ -3,7 +3,7 @@ const $app = document.getElementById('app');
 const state = {
   user: null, fields: [], types: [], statuses: [], tracks: [], rows: [], editing: null,
   search: '', filters: { status: '', track: '', type: '' }, workspace: 'all',
-  page: 'rows', users: [], importPreview: null,
+  page: 'rows', users: [], importPreview: null, imports: [], importFilename: null,
 };
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
@@ -197,6 +197,7 @@ function renderApp() {
       state.page = 'import';
       state.importPreview = null;
       renderApp();
+      loadImports().then(renderApp);
     };
   }
 
@@ -501,6 +502,16 @@ function openUserForm(user) {
 }
 
 // ---------- import panel ----------
+async function loadImports() {
+  if (!isAdmin()) return;
+  try {
+    const d = await api('/imports');
+    state.imports = d.imports || [];
+  } catch (_) {
+    state.imports = [];
+  }
+}
+
 function renderImportPanel() {
   const p = state.importPreview;
   const summary = p ? `
@@ -529,6 +540,23 @@ function renderImportPanel() {
       ${p.skipped_rows.map(r => `<tr><td>${r.row_number}</td><td>${esc(r.reason)}</td></tr>`).join('')}
     </tbody></table></div>` : '';
   const commitDisabled = !(p && p.rows.length > 0) ? ' disabled' : '';
+  const historyHtml = isAdmin() ? (() => {
+    if (!state.imports.length) return '<p class="import-note">No imports yet.</p>';
+    return `<h3 class="import-h">Import History</h3>
+      <div class="table-scroll"><table><thead><tr>
+        <th>#</th><th>File</th><th>By</th><th>Date</th><th>Rows</th><th>Warnings</th><th>Status</th>
+      </tr></thead><tbody>
+        ${state.imports.map(b => `<tr>
+          <td>${b.id}</td>
+          <td>${esc(b.filename)}</td>
+          <td>${esc(b.imported_by)}</td>
+          <td>${esc((b.imported_at || '').slice(0, 16).replace('T', ' '))}</td>
+          <td>${b.importable_rows ?? b.total_rows ?? '—'}</td>
+          <td>${b.warning_count ?? '—'}</td>
+          <td>${esc(b.status)}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+  })() : '';
   return `
     <div class="import-panel">
       <h2 class="users-title">Import from XLSX</h2>
@@ -542,6 +570,7 @@ function renderImportPanel() {
       ${summary}
       ${importable}
       ${skipped}
+      ${historyHtml}
     </div>`;
 }
 
@@ -571,6 +600,7 @@ function bindImportActions() {
       const content_base64 = await fileToBase64(file);
       const data = await api('/import/preview', { method: 'POST', body: { filename: file.name, content_base64 } });
       state.importPreview = data;
+      state.importFilename = file.name;
       renderApp();
     } catch (e) { setErr(e.message); }
   };
@@ -581,11 +611,17 @@ function bindImportActions() {
     if (!p || !p.rows.length) { setErr('Nothing to import — run a preview with importable rows first.'); return; }
     if (!confirm(`Import ${p.rows.length} row(s) into the database?`)) return;
     try {
-      const res = await api('/import/commit', { method: 'POST', body: { rows: p.rows.map(r => r.data) } });
+      const res = await api('/import/commit', { method: 'POST', body: {
+        filename: state.importFilename || '',
+        sheet: p.summary.sheet || '',
+        rows: p.rows.map(r => ({ data: r.data, row_number: r.row_number })),
+      } });
       state.importPreview = null;
+      state.importFilename = null;
       state.page = 'rows';
       state.workspace = 'all';
       await loadRows();
+      await loadImports();
       renderApp();
       alert(`Imported ${res.inserted_count} row(s)` + (res.skipped_count ? `, ${res.skipped_count} skipped` : '') + '.');
     } catch (e) { setErr(e.message); }

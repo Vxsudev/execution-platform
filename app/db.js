@@ -73,6 +73,17 @@ CREATE TABLE IF NOT EXISTS entries (
   created_at       TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS imports (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename        TEXT NOT NULL,
+  imported_by     TEXT NOT NULL,
+  imported_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  total_rows      INTEGER,
+  importable_rows INTEGER,
+  skipped_rows    INTEGER,
+  warning_count   INTEGER,
+  status          TEXT NOT NULL DEFAULT 'complete'
+);
 `);
 
 try { db.exec("ALTER TABLE entries ADD COLUMN created_by TEXT;"); } catch (_) {}
@@ -80,6 +91,11 @@ try { db.exec("ALTER TABLE entries ADD COLUMN updated_by TEXT;"); } catch (_) {}
 
 try { db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'viewer';"); } catch (_) {}
 try { db.exec("ALTER TABLE users ADD COLUMN track_scope TEXT DEFAULT NULL;"); } catch (_) {}
+
+try { db.exec("ALTER TABLE entries ADD COLUMN import_batch_id INTEGER DEFAULT NULL;"); } catch (_) {}
+try { db.exec("ALTER TABLE entries ADD COLUMN import_source_sheet TEXT DEFAULT NULL;"); } catch (_) {}
+try { db.exec("ALTER TABLE entries ADD COLUMN import_source_row INTEGER DEFAULT NULL;"); } catch (_) {}
+
 
 // Seed demo users only in non-production environments.
 if (process.env.NODE_ENV !== 'production' && db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {

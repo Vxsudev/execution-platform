@@ -438,16 +438,36 @@ app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
 
 app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
-  const { rows } = req.body || {};
+  const { filename, sheet, rows } = req.body || {};
+  if (!filename || typeof filename !== 'string' || !filename.trim() || !/\.xlsx$/i.test(filename))
+    return res.status(400).json({ error: 'filename must be a non-empty string ending in .xlsx' });
+  const sheetName = typeof sheet === 'string' ? sheet : '';
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows array is required' });
+
+  let importable_rows = 0, skipped_rows = 0, warning_count = 0;
+  for (const row_item of rows) {
+    const c = classifyImportRow(row_item.data || row_item);
+    if (c.importable) { importable_rows++; warning_count += c.warnings.length; }
+    else skipped_rows++;
+  }
+
+  const batchInfo = db.prepare(
+    'INSERT INTO imports (filename, imported_by, total_rows, importable_rows, skipped_rows, warning_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(filename, req.user.username, rows.length, importable_rows, skipped_rows, warning_count, 'complete');
+  const batch_id = Number(batchInfo.lastInsertRowid);
+
   const ids = [];
   const skipped = [];
-  rows.forEach((raw, i) => {
-    const c = classifyImportRow(raw);
+  rows.forEach((row_item, i) => {
+    const { data, row_number } = row_item || {};
+    const c = classifyImportRow(data || {});
     if (!c.importable) { skipped.push({ index: i, reason: c.reason }); return; }
     const row = toImportRow(c.data);
     row.created_by = req.user.username;
     row.updated_by = req.user.username;
+    row.import_batch_id = batch_id;
+    row.import_source_sheet = sheetName;
+    row.import_source_row = typeof row_number === 'number' ? row_number : null;
     try {
       const keys = Object.keys(row);
       const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
@@ -457,7 +477,15 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
       skipped.push({ index: i, reason: 'insert failed: ' + (e && e.message ? e.message : 'unknown error') });
     }
   });
-  res.json({ ok: true, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped });
+  res.json({ ok: true, batch_id, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped });
+});
+
+app.get('/api/imports', requireAuth, (req, res) => {
+  if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const imports = db.prepare(
+    'SELECT id, filename, imported_by, imported_at, total_rows, importable_rows, skipped_rows, warning_count, status FROM imports ORDER BY id DESC'
+  ).all();
+  res.json({ imports });
 });
 
 const PORT = process.env.PORT || 3000;
