@@ -281,7 +281,59 @@ The import pipeline detects probable duplicate rows before and during commit.
 - Manual rows (`import_batch_id = NULL`) are never affected.
 
 **Planned future work:**
-- True workbook capture (`import_observations` table) is planned for P3-4 and is **not** implemented here.
+- Richer per-row provenance in the row details modal is planned for P3-5.
+
+### True Workbook Capture (Phase 3)
+
+An import attempt now records **workbook reality** even when zero execution
+rows are inserted. The system distinguishes two kinds of data:
+
+- **Execution rows** live in `entries`. Only importable, non-duplicate (or
+  explicitly overridden) rows that pass open-mode classification become
+  entries. They carry `import_batch_id` / `import_source_sheet` /
+  `import_source_row`.
+- **Workbook observations** live in the `import_observations` table, linked by
+  `import_batch_id`. Observations are an audit record of what the workbook
+  contained — they are **never** execution rows and never appear in the table,
+  dashboard, or row CRUD.
+
+**Operator law:** *0 execution rows ≠ 0 captured workbook content.*
+
+**Observation schema (`import_observations`):**
+
+| Column | Meaning |
+|--------|---------|
+| `id` | Auto-increment observation id |
+| `import_batch_id` | FK to `imports.id` |
+| `source_sheet` / `source_row` | Workbook origin (row null for sheet-level) |
+| `observation_type` | `workbook_sheet`, `imported_entry`, `duplicate_skipped`, `skipped_row` (flexible TEXT) |
+| `status` | `captured`, `imported`, `skipped` |
+| `reason` | Why skipped/captured (e.g. `duplicate`, `title is required`, `zero execution rows inserted`) |
+| `raw_data` | JSON snapshot of the source row / sheet summary |
+| `created_at` | Capture timestamp |
+
+**Commit capture (every commit):**
+- One `workbook_sheet` observation per commit (always), recording sheet name and
+  count summary. If `inserted_count = 0`, its reason is `zero execution rows
+  inserted` — proof the attempt was captured.
+- One `imported_entry` observation per inserted execution row.
+- One `duplicate_skipped` observation per duplicate-skipped row.
+- One `skipped_row` observation per parse-skipped (e.g. blank-title) row the
+  preview forwarded.
+- The commit response includes `observation_count`.
+
+**Preview** computes projected capture counts (`observed_sheet_count`,
+`observation_count`) and now includes raw `data` on skipped rows so they can be
+captured at commit — **preview still writes nothing**.
+
+**Delete batch** cascades: `DELETE /api/imports/:id` removes the batch's
+observations *and* entries *and* the ledger row inside one transaction, and
+returns `deleted_observation_count`. Manual rows and other batches are untouched.
+
+**Import History** shows an observation count per batch.
+
+**Planned future work:**
+- P3-5 will expose this provenance and observation detail more fully in the UI.
 
 ## Out of Scope (v1)
 

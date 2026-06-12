@@ -515,6 +515,8 @@ async function loadImports() {
 function renderImportPanel() {
   const p = state.importPreview;
   const dupCount = p ? (p.summary.duplicate_count || 0) : 0;
+  const obsCount = p && typeof p.summary.observation_count === 'number' ? p.summary.observation_count : null;
+  const sheetCount = p && typeof p.summary.observed_sheet_count === 'number' ? p.summary.observed_sheet_count : null;
   const summary = p ? `
     <div class="import-summary">
       <strong>${esc(p.summary.sheet)}</strong> —
@@ -523,6 +525,7 @@ function renderImportPanel() {
       <span class="warn">${p.summary.warning_count} warning${p.summary.warning_count === 1 ? '' : 's'}</span> ·
       <span class="bad">${p.summary.skipped_rows} skipped</span>
       ${dupCount > 0 ? ` · <span class="warn-text">${dupCount} duplicate${dupCount === 1 ? '' : 's'}</span>` : ''}
+      ${obsCount != null ? ` · <span class="ok">~${obsCount} observation${obsCount === 1 ? '' : 's'}</span>${sheetCount != null ? ` across ${sheetCount} sheet${sheetCount === 1 ? '' : 's'}` : ''}` : ''}
     </div>` : '';
   const importable = (p && p.rows.length) ? `
     <h3 class="import-h">Importable rows preview (first 10 of ${p.rows.length})</h3>
@@ -547,7 +550,7 @@ function renderImportPanel() {
     if (!state.imports.length) return '<p class="import-note">No imports yet.</p>';
     return `<h3 class="import-h">Import History</h3>
       <div class="table-scroll"><table><thead><tr>
-        <th>#</th><th>File</th><th>By</th><th>Date</th><th>Rows</th><th>Warnings</th><th>Status</th><th>Action</th>
+        <th>#</th><th>File</th><th>By</th><th>Date</th><th>Rows</th><th>Warnings</th><th>Obs</th><th>Status</th><th>Action</th>
       </tr></thead><tbody>
         ${state.imports.map(b => `<tr>
           <td>${b.id}</td>
@@ -556,6 +559,7 @@ function renderImportPanel() {
           <td>${esc((b.imported_at || '').slice(0, 16).replace('T', ' '))}</td>
           <td>${b.importable_rows ?? b.total_rows ?? '—'}</td>
           <td>${b.warning_count ?? '—'}</td>
+          <td>${b.observation_count ?? '—'}</td>
           <td>${esc(b.status)}</td>
           <td><button class="btn danger sm" data-del-batch="${b.id}">Delete</button></td>
         </tr>`).join('')}
@@ -623,6 +627,7 @@ function bindImportActions() {
         filename: state.importFilename || '',
         sheet: p.summary.sheet || '',
         rows: p.rows.map(r => ({ data: r.data, row_number: r.row_number })),
+        skipped_rows: (p.skipped_rows || []),
         allow_duplicates: state.allowDuplicates || false,
       } });
       state.importPreview = null;
@@ -636,6 +641,8 @@ function bindImportActions() {
       let msg = `Imported ${res.inserted_count} row(s)`;
       if (res.skipped_count) msg += `, ${res.skipped_count} skipped`;
       if (res.duplicate_skipped_count) msg += ` (${res.duplicate_skipped_count} duplicate${res.duplicate_skipped_count === 1 ? '' : 's'} skipped)`;
+      if (typeof res.observation_count === 'number') msg += ` · ${res.observation_count} observation${res.observation_count === 1 ? '' : 's'} captured`;
+      msg += ` · batch #${res.batch_id}`;
       alert(msg + '.');
     } catch (e) { setErr(e.message); }
   };
@@ -652,7 +659,9 @@ function bindImportActions() {
         await loadImports();
         await loadRows();
         renderApp();
-        alert(`Deleted ${res.deleted_entry_count} imported row(s) from batch #${batchId}.`);
+        let m = `Deleted ${res.deleted_entry_count} imported row(s) from batch #${batchId}.`;
+        if (typeof res.deleted_observation_count === 'number') m += ` ${res.deleted_observation_count} observation(s) removed.`;
+        alert(m);
       } catch (e) {
         setErr(e.message || 'Delete failed.');
       }

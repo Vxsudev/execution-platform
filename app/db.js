@@ -84,6 +84,17 @@ CREATE TABLE IF NOT EXISTS imports (
   warning_count   INTEGER,
   status          TEXT NOT NULL DEFAULT 'complete'
 );
+CREATE TABLE IF NOT EXISTS import_observations (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  import_batch_id   INTEGER NOT NULL,
+  source_sheet      TEXT,
+  source_row        INTEGER,
+  observation_type  TEXT NOT NULL,
+  status            TEXT NOT NULL,
+  reason            TEXT,
+  raw_data          TEXT,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 try { db.exec("ALTER TABLE entries ADD COLUMN created_by TEXT;"); } catch (_) {}

@@ -460,14 +460,17 @@ app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
   let duplicate_count = 0;
   for (const { row_number, data } of parsed.rows) {
     const c = classifyImportRow(data);
-    if (!c.importable) { skipped_rows.push({ row_number, reason: c.reason }); continue; }
+    if (!c.importable) { skipped_rows.push({ row_number, reason: c.reason, data }); continue; }
     warning_count += c.warnings.length;
     const dupResult = findDuplicateForImportRow(c.data, parsed.sheet, row_number);
     if (dupResult.duplicate) duplicate_count++;
     rows.push({ row_number, warnings: c.warnings, data: c.data, duplicate: dupResult.duplicate, duplicate_reason: dupResult.duplicate_reason, duplicate_entry_id: dupResult.duplicate_entry_id });
   }
+  // Projected true-capture counts (P3-4). Estimates only — preview writes nothing.
+  const observed_sheet_count = parsed.sheet ? 1 : 0;
+  const observation_count = rows.length + skipped_rows.length + observed_sheet_count;
   res.json({
-    summary: { sheet: parsed.sheet, total_rows: parsed.rows.length, importable_rows: rows.length, skipped_rows: skipped_rows.length, warning_count, duplicate_count },
+    summary: { sheet: parsed.sheet, total_rows: parsed.rows.length, importable_rows: rows.length, skipped_rows: skipped_rows.length, warning_count, duplicate_count, observed_sheet_count, observation_count },
     rows,
     skipped_rows,
   });
@@ -481,6 +484,9 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
   const sheetName = typeof sheet === 'string' ? sheet : '';
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows array is required' });
   const allow_duplicates = req.body.allow_duplicates === true;
+  // P3-4: optional parse-skipped rows forwarded from the preview, captured as
+  // observations (never inserted into entries). Backward compatible — defaults to [].
+  const payloadSkipped = Array.isArray(req.body.skipped_rows) ? req.body.skipped_rows : [];
 
   // First pass: classify + detect duplicates, compute all counts before INSERT.
   let importable_rows = 0, parse_skipped = 0, warning_count = 0, duplicate_count = 0;
@@ -505,10 +511,15 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
 
   const ids = [];
   const skipped = [];
+  // P3-4: collect per-row outcomes to build workbook observations after the loop.
+  const insertedObs = [];   // { source_row, entry_id, data }
+  const dupObs = [];        // { source_row, data, duplicate_entry_id }
   for (const { index: i, c, row_number, dupResult } of classified) {
     if (!c.importable) { skipped.push({ index: i, reason: c.reason }); continue; }
     if (!allow_duplicates && dupResult && dupResult.duplicate) {
-      skipped.push({ index: i, reason: 'duplicate' }); continue;
+      skipped.push({ index: i, reason: 'duplicate' });
+      dupObs.push({ source_row: typeof row_number === 'number' ? row_number : null, data: c.data, duplicate_entry_id: dupResult.duplicate_entry_id });
+      continue;
     }
     const row = toImportRow(c.data);
     row.created_by = req.user.username;
@@ -520,18 +531,50 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
       const keys = Object.keys(row);
       const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
         .run(...keys.map((k) => row[k]));
-      ids.push(Number(info.lastInsertRowid));
+      const entry_id = Number(info.lastInsertRowid);
+      ids.push(entry_id);
+      insertedObs.push({ source_row: row.import_source_row, entry_id, data: c.data });
     } catch (e) {
       skipped.push({ index: i, reason: 'insert failed: ' + (e && e.message ? e.message : 'unknown error') });
     }
   }
-  res.json({ ok: true, batch_id, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped, duplicate_count, duplicate_skipped_count: dup_skipped });
+
+  // P3-4 true workbook capture: record observations linked to the batch. These
+  // are audit/source reality — never execution rows. A batch always carries at
+  // least the workbook_sheet observation, so a zero-insert attempt still proves
+  // captured workbook content.
+  const obsStmt = db.prepare(
+    'INSERT INTO import_observations (import_batch_id, source_sheet, source_row, observation_type, status, reason, raw_data) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  let observation_count = 0;
+  const addObs = (source_row, observation_type, status, reason, rawObj) => {
+    obsStmt.run(batch_id, sheetName || null, source_row, observation_type, status, reason, rawObj == null ? null : JSON.stringify(rawObj));
+    observation_count++;
+  };
+  // 1) Always: one workbook_sheet observation capturing the attempt + counts.
+  addObs(null, 'workbook_sheet', 'captured', ids.length === 0 ? 'zero execution rows inserted' : null, {
+    total_rows: rows.length, importable_rows, inserted: ids.length, duplicate_skipped: dup_skipped, parse_skipped,
+  });
+  // 2) One per inserted execution row.
+  for (const o of insertedObs) addObs(o.source_row, 'imported_entry', 'imported', null, { ...o.data, entry_id: o.entry_id });
+  // 3) One per duplicate-skipped row.
+  for (const o of dupObs) addObs(o.source_row, 'duplicate_skipped', 'skipped', 'duplicate', { ...o.data, duplicate_entry_id: o.duplicate_entry_id });
+  // 4) One per parse-skipped row forwarded from the preview.
+  for (const s of payloadSkipped) {
+    if (!s || typeof s !== 'object') continue;
+    const sr = typeof s.row_number === 'number' ? s.row_number : null;
+    addObs(sr, 'skipped_row', 'skipped', typeof s.reason === 'string' ? s.reason : 'skipped', s.data != null ? s.data : null);
+  }
+
+  res.json({ ok: true, batch_id, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped, duplicate_count, duplicate_skipped_count: dup_skipped, observation_count });
 });
 
 app.get('/api/imports', requireAuth, (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const imports = db.prepare(
-    'SELECT id, filename, imported_by, imported_at, total_rows, importable_rows, skipped_rows, warning_count, status FROM imports ORDER BY id DESC'
+    'SELECT id, filename, imported_by, imported_at, total_rows, importable_rows, skipped_rows, warning_count, status, ' +
+    '(SELECT COUNT(*) FROM import_observations o WHERE o.import_batch_id = imports.id) AS observation_count ' +
+    'FROM imports ORDER BY id DESC'
   ).all();
   res.json({ imports });
 });
@@ -544,10 +587,11 @@ app.delete('/api/imports/:id', requireAuth, (req, res) => {
   if (!existing) return res.status(404).json({ error: 'import batch not found' });
   db.exec('BEGIN');
   try {
+    const deleted_observation_count = db.prepare('DELETE FROM import_observations WHERE import_batch_id = ?').run(id).changes;
     const deleted_entry_count = db.prepare('DELETE FROM entries WHERE import_batch_id = ?').run(id).changes;
     db.prepare('DELETE FROM imports WHERE id = ?').run(id);
     db.exec('COMMIT');
-    res.json({ ok: true, deleted_entry_count, deleted_import_id: id });
+    res.json({ ok: true, deleted_observation_count, deleted_entry_count, deleted_import_id: id });
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch (_) {}
     res.status(500).json({ error: 'delete failed: ' + (e && e.message ? e.message : 'unknown error') });

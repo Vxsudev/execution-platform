@@ -1133,3 +1133,80 @@ No DB schema changes. No unique constraints. No new tables.
 
 P3-4 (true workbook capture) requires creating `import_observations` table. P3-3 does NOT create this table. P3-4 is unblocked by P3-3 completion.
 
+
+---
+
+## P3-4: phase-3-true-workbook-capture
+
+**Completed:** 2026-06-12T15:15:00Z
+**State:** RELEASE_APPROVED
+**Tasks:** 4/4 done
+**Invariants:** 5/5 PASS throughout
+
+### Summary
+
+Added true workbook capture: every import commit now records workbook reality in a new `import_observations` table linked to the batch, even when zero execution rows are inserted. Execution rows (in `entries`) are kept strictly separate from workbook observations. Operator law satisfied — "0 execution rows ≠ 0 captured workbook content."
+
+### Capability / Branch
+
+P3-4 True Workbook Capture — feature slug `phase-3-true-workbook-capture`. Branch: main.
+
+### Files Modified
+
+- `app/db.js`: Added `import_observations` table (CREATE TABLE IF NOT EXISTS, inside the main schema block, after `imports`). Additive, idempotent, no ALTER, no backfill.
+- `app/server.js`: (1) Preview — skipped_rows entries now carry raw `data`; summary adds `observed_sheet_count` + projected `observation_count`; still writes nothing. (2) Commit — accepts optional `skipped_rows` payload; after the unchanged entry-insert loop, inserts observations (1 `workbook_sheet` always, 1 `imported_entry` per inserted row, 1 `duplicate_skipped` per dup, 1 `skipped_row` per forwarded parse-skip); response adds `observation_count`. (3) GET /api/imports — adds correlated-subquery `observation_count` per batch. (4) DELETE /api/imports/:id — cascades `DELETE FROM import_observations` inside the existing transaction; response adds `deleted_observation_count`.
+- `app/public/app.js`: Preview summary shows projected observation count + sheet count; Import History gains an Obs column; commit payload forwards `skipped_rows`; commit alert shows observations captured + batch id; delete alert shows observations removed.
+- `app/public/style.css`: No new class required (reused `.ok` / `.warn-text`).
+- `app/README.md`: Added "True Workbook Capture" section (execution rows vs observations, schema table, commit capture, delete cascade, P3-5 pointer).
+- `ai/recon/phase-3-true-workbook-capture-recon.md`, `specs/phase-3-true-workbook-capture.md`, `tasks/phase-3-true-workbook-capture-001..004.md`: created.
+- `ai/state_registry.json`: phase-3-true-workbook-capture → RELEASE_APPROVED.
+
+### Observation Schema
+
+`import_observations(id, import_batch_id NOT NULL, source_sheet, source_row, observation_type NOT NULL, status NOT NULL, reason, raw_data, created_at)`. Flexible TEXT for observation_type/status (no CHECK) per directive. Types emitted: `workbook_sheet`, `imported_entry`, `duplicate_skipped`, `skipped_row`.
+
+### Preview / Commit / Delete Changes
+
+- Preview: read-only; adds raw data on skips + projected counts.
+- Commit: execution-row validation (P2-4A) and duplicate detection / allow_duplicates override unchanged; observations captured after insert; batch always created; zero-insert commit still produces batch + observations with `workbook_sheet.reason = 'zero execution rows inserted'`.
+- Delete cascade: observations + entries + ledger row removed in one transaction; manual rows (NULL batch) and other batches untouched.
+
+### Verification Results (smoke on restored-after live DB, logical state preserved)
+
+| Check | Result |
+|-------|--------|
+| node --check db.js / server.js / app.js | 0 / 0 / 0 |
+| Invariants | 5/5 PASS |
+| import_observations table exists on boot (9 cols) | PASS |
+| Preview writes zero observations | PASS (0 → 0) |
+| Normal commit: 2 entries + 4 obs (1 sheet+2 imported+1 skipped) | PASS |
+| Commit response includes observation_count | PASS |
+| Zero-insert commit (all dup): batch + 4 obs, inserted_count=0 | PASS |
+| workbook_sheet reason='zero execution rows inserted' when inserted=0 | PASS |
+| Skipped blank-title row captured as skipped_row obs, NOT in entries | PASS |
+| allow_duplicates=true still imports (P3-3) | PASS |
+| GET /api/imports includes observation_count per batch | PASS |
+| DELETE cascades: deleted_observation_count=4, deleted_entry_count=2 | PASS |
+| Manual rows (65 NULL) untouched; other batch untouched | PASS |
+| Vasu preview/commit/delete → 403 | PASS |
+| Anon preview/commit/delete → 401 | PASS |
+| No [FILL:] residue; git only allowed surfaces | PASS |
+
+### DB Hygiene
+
+Smoke tested against the live DB with a full backup taken first; live DB restored afterward and verified **logically identical** to the backup (65 entries, 1 import, 65 manual NULL). Pre-existing batch id=9 (operator's P3-3 UI test of the real workbook — 19 importable rows all duplicate-skipped, 0 inserted) was left intentionally; it carries 0 observations because it predates capture. No test data persisted.
+
+### Architectural Notes
+
+- DB path is hardcoded `path.join(__dirname,'data.db')` (no env override) — disposable testing done via backup/restore. WAL bookkeeping changes the file bytes on open, but logical data is preserved (verified by content diff).
+- Commit kept non-transactional per-row resilience (matches existing P3-3 structure); observation inserts run after the entry loop using collected outcomes.
+- Observations never enter `entries`; P2-4A execution validation is not relaxed.
+
+### Unresolved Risks
+
+- Parser still processes a single summary sheet (P3-0 finding); multi-sheet `workbook_sheet` observations are future work. Reserved observation types (`malformed_row`, `empty_row`, `non_executable_sheet`, `header_candidate`) are defined but not yet emitted.
+- Fully-empty workbook rows are dropped by the parser before commit, so they produce no `empty_row` observation in P3-4.
+
+### P3-5 Dependency Status
+
+P3-5 (import provenance in row details modal) will READ `import_observations` + entries import metadata to surface per-row provenance. P3-4 creates the observation store; it adds NO modal/provenance UI (explicitly P3-5 scope). P3-5 is unblocked.
