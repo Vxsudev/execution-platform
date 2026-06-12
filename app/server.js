@@ -488,5 +488,23 @@ app.get('/api/imports', requireAuth, (req, res) => {
   res.json({ imports });
 });
 
+app.delete('/api/imports/:id', requireAuth, (req, res) => {
+  if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid import id' });
+  const existing = db.prepare('SELECT id FROM imports WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'import batch not found' });
+  db.exec('BEGIN');
+  try {
+    const deleted_entry_count = db.prepare('DELETE FROM entries WHERE import_batch_id = ?').run(id).changes;
+    db.prepare('DELETE FROM imports WHERE id = ?').run(id);
+    db.exec('COMMIT');
+    res.json({ ok: true, deleted_entry_count, deleted_import_id: id });
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    res.status(500).json({ error: 'delete failed: ' + (e && e.message ? e.message : 'unknown error') });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`execution-table-app running on http://localhost:${PORT}`));

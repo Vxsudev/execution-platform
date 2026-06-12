@@ -968,3 +968,60 @@ None.
 - No import provenance in row details modal (P3-5 planned)
 
 **P3-2 dependency created:** DELETE /api/imports/:id requires imports.id (now available) + entries.import_batch_id (now available). P3-2 is unblocked.
+
+---
+
+## P3-2: phase-3-delete-import-batch
+
+**Completed:** 2026-06-12T08:41:58Z
+**State:** RELEASE_APPROVED
+**Tasks:** 4/4 done
+**Invariants:** 5/5 PASS throughout
+
+### Summary
+
+Admin-only DELETE /api/imports/:id implemented with full transactional safety. All P3-2 acceptance criteria verified.
+
+### Changes
+
+- `app/server.js`: Added `DELETE /api/imports/:id` route after `GET /api/imports`. Hard-deletes all entries with matching `import_batch_id` then the imports record, wrapped in `db.exec('BEGIN')`/`db.exec('COMMIT')`/`db.exec('ROLLBACK')` transaction. Existence check before BEGIN — double-delete returns 404. Non-admin → 403. Anon → 401. Non-integer id → 400. Returns `{ ok, deleted_entry_count, deleted_import_id }`.
+- `app/public/app.js`: Added Action column to Import History table with Delete button (`data-del-batch`, `class="btn danger sm"`). Delete handler in `bindImportActions()` with confirm dialog stating batch id + row count, DELETE API call, post-delete `loadImports()` + `loadRows()` + `renderApp()`, alert with `deleted_entry_count`, error display via `setErr()`.
+- `app/public/style.css`: Added `.btn.sm{font-size:11px;padding:2px 8px;height:22px}`.
+- `app/README.md`: Updated import management section to document delete batch functionality.
+- `ai/state_registry.json`: `phase-3-delete-import-batch` → RELEASE_APPROVED.
+
+### Verification results
+
+| Check | Result |
+|-------|--------|
+| node --check app/server.js | 0 |
+| node --check app/public/app.js | 0 |
+| DELETE (admin, existing) → 200 + counts | PASS |
+| DELETE (non-admin) → 403 | PASS |
+| DELETE (anon) → 401 | PASS |
+| DELETE (missing id) → 404 | PASS |
+| DELETE (non-integer id) → 400 | PASS |
+| Double-delete → 404 | PASS |
+| Batch entries deleted; NULL entries untouched (65 preserved) | PASS |
+| Two-batch isolation | PASS |
+| Import History Delete button rendered | PASS |
+| Confirm dialog with id + row count | PASS |
+| Post-delete: history + rows refresh | PASS |
+| Invariants 5/5 | PASS |
+| No [FILL:] residue | PASS |
+| README updated | PASS |
+| DB cleaned up (0 imports, 65 NULL entries) | PASS |
+
+### Architectural notes
+
+- No DB schema changes — P3-2 uses P3-1 schema entirely
+- Transaction pattern: `db.exec('BEGIN')` + `db.exec('COMMIT'/'ROLLBACK')` — node:sqlite built-in DatabaseSync has no `transaction()` helper
+- NULL import_batch_id safety: `WHERE import_batch_id = ?` with an integer id never matches NULL rows (SQL NULL semantics)
+- Supervisor STATE ERROR was expected — task 004 worker advanced state to RELEASE_APPROVED before supervisor's own state transition; recovery: verify state = RELEASE_APPROVED, append journal manually
+
+### Known limitations / open items
+
+- No import_observations cascade (P3-4 — table doesn't exist yet)
+- DELETE /api/rows/:id (single-row delete) still available separately for manual row management
+- Next: P3-3 duplicate detection
+

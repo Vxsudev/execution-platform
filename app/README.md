@@ -243,7 +243,15 @@ The **Import tab** in the UI shows the Import History table below the upload for
 
 ### Delete import batch
 
-Planned for Phase 3-2 (not yet available). Batch records and their associated entries cannot be deleted through the UI or API in this version.
+Admins can delete an import batch via the **Delete** button in the Import History table.
+
+- Deletion permanently removes all entries tagged to that batch (`import_batch_id = <id>`).
+- Manual rows (`import_batch_id = NULL`) are never touched by a batch delete.
+- Double-delete returns `404` (idempotent-safe).
+- Non-admin attempts return `403`; unauthenticated attempts return `401`.
+- The UI refreshes Import History and Rows after deletion and shows the count of deleted entries.
+
+P3-3 duplicate detection is planned next.
 
 ## Out of Scope (v1)
 

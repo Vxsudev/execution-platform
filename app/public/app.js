@@ -544,7 +544,7 @@ function renderImportPanel() {
     if (!state.imports.length) return '<p class="import-note">No imports yet.</p>';
     return `<h3 class="import-h">Import History</h3>
       <div class="table-scroll"><table><thead><tr>
-        <th>#</th><th>File</th><th>By</th><th>Date</th><th>Rows</th><th>Warnings</th><th>Status</th>
+        <th>#</th><th>File</th><th>By</th><th>Date</th><th>Rows</th><th>Warnings</th><th>Status</th><th>Action</th>
       </tr></thead><tbody>
         ${state.imports.map(b => `<tr>
           <td>${b.id}</td>
@@ -554,6 +554,7 @@ function renderImportPanel() {
           <td>${b.importable_rows ?? b.total_rows ?? '—'}</td>
           <td>${b.warning_count ?? '—'}</td>
           <td>${esc(b.status)}</td>
+          <td><button class="btn danger sm" data-del-batch="${b.id}">Delete</button></td>
         </tr>`).join('')}
       </tbody></table></div>`;
   })() : '';
@@ -626,6 +627,25 @@ function bindImportActions() {
       alert(`Imported ${res.inserted_count} row(s)` + (res.skipped_count ? `, ${res.skipped_count} skipped` : '') + '.');
     } catch (e) { setErr(e.message); }
   };
+  document.querySelectorAll('[data-del-batch]').forEach((btn) => {
+    btn.onclick = async () => {
+      const batchId = Number(btn.dataset.delBatch);
+      const batch = state.imports.find(b => b.id === batchId);
+      const rowCount = batch ? (batch.importable_rows ?? batch.total_rows ?? '?') : '?';
+      const msg = `Delete import batch #${batchId}? This will permanently delete ${rowCount} imported row(s). Manual rows will not be touched. This cannot be undone.`;
+      if (!confirm(msg)) return;
+      setErr('');
+      try {
+        const res = await api('/imports/' + batchId, { method: 'DELETE' });
+        await loadImports();
+        await loadRows();
+        renderApp();
+        alert(`Deleted ${res.deleted_entry_count} imported row(s) from batch #${batchId}.`);
+      } catch (e) {
+        setErr(e.message || 'Delete failed.');
+      }
+    };
+  });
 }
 
 // ---------- details modal ----------
