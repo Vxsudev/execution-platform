@@ -3,7 +3,8 @@ const $app = document.getElementById('app');
 const state = {
   user: null, fields: [], types: [], statuses: [], tracks: [], rows: [], editing: null,
   search: '', filters: { status: '', track: '', type: '' }, workspace: 'all',
-  page: 'rows', users: [], importPreview: null, imports: [], importFilename: null, allowDuplicates: false,
+  page: 'rows', users: [], importPreview: null, imports: [], importFilename: null,
+  allowDuplicates: false, expandedCells: new Set(),
 };
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
@@ -259,6 +260,13 @@ function renderTable(rows) {
       if (k === 'status') return `<td><span class="status s-${esc((r.status || '').replace(/\s/g, '.'))}">${esc(r.status)}</span></td>`;
       if (TRUNC_COLS.has(k)) {
         const v = r[k] || '';
+        if (v.length > 80) {
+          const ck = `${r.id}:${k}`;
+          const expanded = state.expandedCells.has(ck);
+          return expanded
+            ? `<td class="trunc has-toggle expanded"><span class="cell-text">${esc(v)}</span><button class="cell-toggle" data-cell-toggle="${esc(ck)}" aria-expanded="true">Less</button></td>`
+            : `<td class="trunc has-toggle" title="${esc(v)}"><span class="cell-text">${esc(v)}</span><button class="cell-toggle" data-cell-toggle="${esc(ck)}" aria-expanded="false">More</button></td>`;
+        }
         return `<td class="trunc" title="${esc(v)}">${esc(v)}</td>`;
       }
       return `<td>${esc(r[k])}</td>`;
@@ -283,6 +291,15 @@ function bindRowActions() {
       await api('/rows/' + b.dataset.del, { method: 'DELETE' });
       await loadRows(); renderApp();
     });
+  document.querySelectorAll('[data-cell-toggle]').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const ck = btn.dataset.cellToggle;
+      if (state.expandedCells.has(ck)) state.expandedCells.delete(ck);
+      else state.expandedCells.add(ck);
+      refreshTable();
+    };
+  });
 }
 
 // ---------- dashboard ----------

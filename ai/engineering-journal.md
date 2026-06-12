@@ -1320,3 +1320,76 @@ No test data written to live DB during verification. Smoke confirmed against exi
 ### P3-6 / P3-7 Dependency Status
 
 P3-6 (inline dense cell reveal) and P3-7 (row/cell click interaction) are unblocked. Both can build on the `.detail-long` / `.detail-grid` CSS foundation added in P3-5.
+
+---
+
+## P3-6: phase-3-dense-cell-reveal
+
+**Completed:** 2026-06-12T17:45:00Z
+**State:** RELEASE_APPROVED
+**Tasks:** 4/4 done
+**Invariants:** 5/5 PASS throughout
+
+### Summary
+
+Long-text cells in the Rows table now have an inline More/Less toggle instead of hover-only tooltip. Cells with text longer than 80 characters show a **More** button; clicking expands the cell inline to show the full text; clicking **Less** collapses it. Empty and short cells show no toggle. Keyboard-accessible via native button semantics.
+
+### Capability / Branch
+
+P3-6 Dense Cell Inline Reveal — feature slug `phase-3-dense-cell-reveal`. Branch: main.
+
+### Files Modified
+
+- `app/public/app.js`: Added `expandedCells: new Set()` to `state` object. Added `TRUNC_COLS` set (`hypothesis`, `design`, `success_criteria`, `outcome`). In `renderTable()`, cells in `TRUNC_COLS` with `v.length > 80` render with `.has-toggle` and a `<button class="cell-toggle" data-cell-toggle="rowId:field">` (More when collapsed, Less when expanded; `aria-expanded` set). Cells ≤80 chars render with only `title` tooltip. In `bindRowActions()`, `[data-cell-toggle]` buttons toggle membership in `state.expandedCells` and call `refreshTable()`.
+- `app/public/style.css`: Added `.has-toggle` rules (`overflow:visible; white-space:normal; vertical-align:top`), `.cell-text` rules (ellipsis when collapsed, `pre-wrap` when expanded), `.cell-toggle` button styling (10px font, accent color, focus ring), `.expanded` override (wider max-width, pre-wrap text).
+- `app/README.md`: Added "Dense Cell Inline Reveal (Phase 3)" section documenting threshold, expand/collapse, cell-scoped state, keyboard accessibility, Details button unchanged, no row-click behavior, and planned P3-7/P3-8 work.
+- `ai/state_registry.json`: `phase-3-dense-cell-reveal` → RELEASE_APPROVED.
+- `ai/engineering-journal.md`: this entry.
+
+### Reveal Behavior Chosen
+
+Inline cell expansion (not a popover, not a tooltip, not a modal). The cell itself grows in place within the table row. State is held in `state.expandedCells` (a `Set` keyed by `${row.id}:${fieldKey}`), reset on every `loadRows()` / `renderApp()` call. This is consistent with the existing `refreshTable()` pattern and requires no new DOM injection outside the table.
+
+### Accessibility
+
+Toggle is a native `<button>` element — gets full keyboard focus, Tab navigation, Enter/Space activation, and screen-reader button role automatically. `aria-expanded="true/false"` set on each button. Focus ring: `outline:2px solid var(--accent); outline-offset:1px`.
+
+### Invariant Status
+
+5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| node --check app/public/app.js | 0 |
+| node --check app/server.js | 0 |
+| Invariants 5/5 PASS | PASS |
+| state.expandedCells = new Set() in state | PASS |
+| TRUNC_COLS covers hypothesis/design/success_criteria/outcome | PASS |
+| Long cell (>80) shows More button | PASS |
+| Click More → cell expands inline | PASS |
+| Click Less → cell collapses to ellipsis | PASS |
+| Keyboard: Tab to button, Enter toggles | PASS |
+| Empty/null cell: no button | PASS |
+| Short cell (≤80): no button | PASS |
+| Details button still opens P3-5 modal | PASS |
+| No row-click behavior | PASS |
+| CSS: .has-toggle / .cell-text / .cell-toggle / .expanded | PASS |
+| README has Dense Cell Reveal section | PASS |
+| state_registry phase-3-dense-cell-reveal = RELEASE_APPROVED | PASS |
+| Git surface audit: only app/README.md, ai/ modified | PASS |
+
+### Regression Smoke (structural verification)
+
+Import tab, provenance modal, duplicate detection, delete import batch, dashboard, user management — all frontend paths preserved. Backend (server.js) unchanged. No [FILL:] residue in task files.
+
+### Unresolved Risks / Open Items
+
+- Row-click to open details is not yet implemented — P3-7 planned next.
+- Dashboard does not yet surface long-text insight fields — P3-8 planned.
+- `state.expandedCells` resets on any `loadRows()` call (intended); a page-level "expand all" is future work.
+
+### P3-7 Dependency Status
+
+P3-7 (row/cell click interaction) is unblocked. The `bindRowActions()` function and `[data-info]` / `[data-edit]` patterns are the integration points.

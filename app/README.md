@@ -374,8 +374,30 @@ an import_batch_id set.
 
 ### Planned Future Work
 
-- **P3-6:** Inline dense cell reveal — expand long-text fields inline in the table row.
 - **P3-7:** Row/cell click interaction — open details or inline editor on cell click.
+
+## Dense Cell Inline Reveal (Phase 3)
+
+Long-text fields in the Rows table (`hypothesis`, `design`, `success_criteria`, `outcome`)
+now have an inline expand/collapse toggle instead of a hover-only tooltip.
+
+- **Threshold:** Cells longer than 80 characters show a **More** button below the truncated text.
+  Cells at or under 80 characters and empty/null cells show no button — the tooltip alone suffices.
+- **Expand/collapse:** Clicking **More** expands the cell inline to show the full text.
+  The button label changes to **Less**. Clicking **Less** collapses back to the truncated ellipsis view.
+- **Cell-scoped state:** Each cell tracks its expanded/collapsed state independently in
+  `state.expandedCells` (a `Set` keyed by `rowId:fieldName`). Expanding one cell does not
+  affect others. State resets on data refresh.
+- **Keyboard-accessible:** The toggle is a native `<button>` element — Tab to reach it,
+  Enter or Space to toggle. Focus ring is visible (2px accent outline).
+- **Full row view unchanged:** The **Details** button on every row still opens the full
+  P3-5 provenance modal with all 14 fields, audit metadata, and import origin.
+- **No row-click behavior:** Clicking the table row itself does nothing. Row interaction
+  is scoped to the action buttons only.
+
+**Planned future work:**
+- **P3-7:** Row/cell click interaction — open details or inline editor on cell click.
+- **P3-8:** Dashboard relevance for long-text insight fields.
 
 ## Out of Scope (v1)
 

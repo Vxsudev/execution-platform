@@ -142,3 +142,11 @@ button[disabled]{opacity:.5;cursor:not-allowed}
 .origin-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;}
 .origin-badge.imported{background:rgba(59,130,246,.18);color:var(--accent);border:1px solid rgba(59,130,246,.35);}
 .origin-badge.manual{background:var(--panel2);color:var(--muted);border:1px solid var(--line);}
+
+/* P3-6 dense cell reveal */
+td.trunc.has-toggle{overflow:visible;white-space:normal;vertical-align:top;max-width:260px}
+td.trunc.has-toggle .cell-text{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell-toggle{display:inline-block;font-size:10px;padding:1px 5px;margin-top:2px;border-radius:3px;border:1px solid var(--line);background:transparent;color:var(--accent);cursor:pointer;line-height:1.4}
+.cell-toggle:focus{outline:2px solid var(--accent);outline-offset:1px}
+td.trunc.has-toggle.expanded{max-width:420px}
+td.trunc.has-toggle.expanded .cell-text{overflow:visible;text-overflow:clip;white-space:pre-wrap;word-break:break-word;max-width:400px}
