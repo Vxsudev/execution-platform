@@ -7,6 +7,8 @@ const state = {
   allowDuplicates: false, expandedCells: new Set(),
 };
 
+let _rowClickTimer = null;
+
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
 const AUDIT_LABELS = { created_at: 'Created', updated_at: 'Updated', created_by: 'Created by', updated_by: 'Updated by' };
 
@@ -271,7 +273,7 @@ function renderTable(rows) {
       }
       return `<td>${esc(r[k])}</td>`;
     }).join('');
-    return `<tr>${cells}<td><div class="row-actions">
+    return `<tr class="clickable-row" data-row-id="${r.id}" tabindex="0">${cells}<td><div class="row-actions">
       <button class="icon-btn" data-info="${r.id}">Details</button>
       ${canEditRow(r) ? `<button class="icon-btn" data-edit="${r.id}">Edit</button>` : ''}
       ${canDeleteRow() ? `<button class="icon-btn danger" data-del="${r.id}">Delete</button>` : ''}
@@ -298,6 +300,23 @@ function bindRowActions() {
       if (state.expandedCells.has(ck)) state.expandedCells.delete(ck);
       else state.expandedCells.add(ck);
       refreshTable();
+    };
+  });
+  document.querySelectorAll('[data-row-id]').forEach((tr) => {
+    const row = state.rows.find(r => r.id === Number(tr.dataset.rowId));
+    if (!row) return;
+    tr.onclick = (e) => {
+      if (e.target.closest('button, a, input, select, textarea')) return;
+      clearTimeout(_rowClickTimer);
+      _rowClickTimer = setTimeout(() => openDetails(row), 200);
+    };
+    tr.ondblclick = (e) => {
+      if (e.target.closest('button, a, input, select, textarea')) return;
+      clearTimeout(_rowClickTimer);
+      if (canEditRow(row)) openForm(row);
+    };
+    tr.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); openDetails(row); }
     };
   });
 }

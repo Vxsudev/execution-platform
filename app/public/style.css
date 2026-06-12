@@ -150,3 +150,6 @@ td.trunc.has-toggle .cell-text{display:block;max-width:100%;overflow:hidden;text
 .cell-toggle:focus{outline:2px solid var(--accent);outline-offset:1px}
 td.trunc.has-toggle.expanded{max-width:420px}
 td.trunc.has-toggle.expanded .cell-text{overflow:visible;text-overflow:clip;white-space:pre-wrap;word-break:break-word;max-width:400px}
+
+.clickable-row{cursor:pointer}
+.clickable-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}

@@ -372,9 +372,26 @@ All authenticated roles (admin, track_owner, viewer) can open the Details modal 
 row they can see. The imports lazy-load runs only for admins and only for rows that have
 an import_batch_id set.
 
-### Planned Future Work
+## Row/Cell Click Interaction (Phase 3)
 
-- **P3-7:** Row/cell click interaction — open details or inline editor on cell click.
+Every data row in the Rows table is now a clickable navigation target.
+
+- **Clicking a row opens Details.** A 200 ms single-click timer fires `openDetails`. Clicking
+  any interactive element inside the row (button, link, input) is ignored — only bare cell
+  area triggers Details.
+- **Double-clicking an editable row opens the Edit form.** The pending single-click timer is
+  cancelled; `openForm` fires immediately. Editability follows the same role rules as the
+  Edit button: admins can double-click any row; a `track_owner` can only double-click rows
+  in their assigned track scope; viewers cannot edit via double-click.
+- **Permissions unchanged.** `canEditRow()` is the single gating function for both the Edit
+  button and double-click. Viewers and track owners outside their scope see Details, never the
+  Edit form, regardless of click count.
+- **More/Less cell reveal is independent.** Clicking the More or Less toggle expands or
+  collapses the cell inline; the single-click timer is not started and Details does not open.
+  Each toggle call uses `e.stopPropagation()` to prevent the row click from firing.
+- **Keyboard accessible.** Tab to any row (`tabindex="0"`), then press Enter to open Details.
+  A visible focus-visible ring confirms keyboard focus.
+- **Dashboard relevance planned for P3-8.**
 
 ## Dense Cell Inline Reveal (Phase 3)
 
@@ -392,11 +409,11 @@ now have an inline expand/collapse toggle instead of a hover-only tooltip.
   Enter or Space to toggle. Focus ring is visible (2px accent outline).
 - **Full row view unchanged:** The **Details** button on every row still opens the full
   P3-5 provenance modal with all 14 fields, audit metadata, and import origin.
-- **No row-click behavior:** Clicking the table row itself does nothing. Row interaction
-  is scoped to the action buttons only.
+- **Row click opens Details (P3-7).** Clicking outside the action buttons fires a 200 ms
+  single-click timer that opens the Details modal. The toggle itself calls
+  `e.stopPropagation()` so More/Less never triggers a Details open.
 
 **Planned future work:**
-- **P3-7:** Row/cell click interaction — open details or inline editor on cell click.
 - **P3-8:** Dashboard relevance for long-text insight fields.
 
 ## Out of Scope (v1)
