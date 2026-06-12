@@ -335,6 +335,48 @@ returns `deleted_observation_count`. Manual rows and other batches are untouched
 **Planned future work:**
 - P3-5 will expose this provenance and observation detail more fully in the UI.
 
+## Import Provenance (Phase 3)
+
+Every row's **Details** button now opens a wide modal showing full provenance information.
+
+### Row Content
+
+The Details modal displays all 14 row content fields:
+Type, Experiment Title, Owner, Track, Function, Parent Item, Description / Hypothesis,
+Experiment Design, Success Criteria, Target End Date, Dependencies, Outcome / Finding,
+Next Action, and Status. Long-text fields (Hypothesis, Design, Success Criteria, Outcome)
+render in a scrollable block. Short fields appear in a 2-column label/value grid.
+
+### Audit Section
+
+Four server-controlled audit fields are always shown: Created by, Created at, Updated by,
+Updated at. These are read-only and cannot be set by the client.
+
+### Provenance Section
+
+**Manual / Legacy rows** (`import_batch_id = NULL`) show a **Manual / Legacy** badge and
+a note indicating the row was created or updated manually. No import batch fields are shown.
+
+**Imported rows** (`import_batch_id IS NOT NULL`) show an **Imported** badge plus:
+- Import Batch id
+- Source Sheet (worksheet name from the workbook)
+- Source Row (1-indexed spreadsheet row number)
+- Filename, Imported by, Imported at, Batch status, and Observation count — loaded
+  lazily from `GET /api/imports` the first time an imported row's details are opened.
+
+Import provenance is read-only. It cannot be edited through the UI.
+
+### Visibility
+
+All authenticated roles (admin, track_owner, viewer) can open the Details modal for any
+row they can see. The imports lazy-load runs only for admins and only for rows that have
+an import_batch_id set.
+
+### Planned Future Work
+
+- **P3-6:** Inline dense cell reveal — expand long-text fields inline in the table row.
+- **P3-7:** Row/cell click interaction — open details or inline editor on cell click.
+
 ## Out of Scope (v1)
 
 - Escalation workflow

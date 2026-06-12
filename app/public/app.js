@@ -670,21 +670,87 @@ function bindImportActions() {
 }
 
 // ---------- details modal ----------
-function openDetails(row) {
-  const fields = [
-    ['Created by', row.created_by || '—'],
-    ['Updated by', row.updated_by || '—'],
-    ['Created',    row.created_at || '—'],
-    ['Updated',    row.updated_at || '—'],
+async function openDetails(row) {
+  if (row.import_batch_id && isAdmin() && !state.imports.length) {
+    await loadImports();
+  }
+
+  const ROW_FIELDS = [
+    { key: 'type',             label: 'Type',                    long: false },
+    { key: 'title',            label: 'Experiment Title',        long: false },
+    { key: 'owner',            label: 'Owner',                   long: false },
+    { key: 'track',            label: 'Track',                   long: false },
+    { key: 'function_area',    label: 'Function',                long: false },
+    { key: 'parent_item',      label: 'Parent Item',             long: false },
+    { key: 'hypothesis',       label: 'Description / Hypothesis',long: true  },
+    { key: 'design',           label: 'Experiment Design',       long: true  },
+    { key: 'success_criteria', label: 'Success Criteria',        long: true  },
+    { key: 'target_end_date',  label: 'Target End Date',         long: false },
+    { key: 'dependencies',     label: 'Dependencies',            long: false },
+    { key: 'outcome',          label: 'Outcome / Finding',       long: true  },
+    { key: 'next_action',      label: 'Next Action',             long: false },
+    { key: 'status',           label: 'Status',                  long: false },
   ];
+
+  const rowContentHtml = ROW_FIELDS.map(({ key, label, long }) => {
+    const val = (row[key] != null && row[key] !== '') ? esc(row[key]) : '—';
+    if (long) {
+      return `<div class="detail-long-label">${esc(label)}</div><div class="detail-long">${val}</div>`;
+    }
+    return `<div class="detail-label">${esc(label)}</div><div class="detail-value">${val}</div>`;
+  }).join('');
+
+  const fmtAt = (v) => v ? esc(String(v).slice(0, 16).replace('T', ' ')) : '—';
+  const auditHtml = [
+    ['Created by', esc(row.created_by) || '—'],
+    ['Created at', fmtAt(row.created_at)],
+    ['Updated by', esc(row.updated_by) || '—'],
+    ['Updated at', fmtAt(row.updated_at)],
+  ].map(([l, v]) => `<div class="detail-label">${esc(l)}</div><div class="detail-value">${v}</div>`).join('');
+
+  let provenanceHtml;
+  if (row.import_batch_id) {
+    const batchMeta = state.imports.find(b => b.id === row.import_batch_id) || null;
+    let batchRows = [
+      `<div class="detail-label">Origin</div><div class="detail-value"><span class="origin-badge imported">Imported</span></div>`,
+      `<div class="detail-label">Import Batch</div><div class="detail-value">#${esc(row.import_batch_id)}</div>`,
+      `<div class="detail-label">Source Sheet</div><div class="detail-value">${esc(row.import_source_sheet) || '—'}</div>`,
+      `<div class="detail-label">Source Row</div><div class="detail-value">${row.import_source_row != null ? esc(row.import_source_row) : '—'}</div>`,
+    ];
+    if (batchMeta) {
+      batchRows = batchRows.concat([
+        `<div class="detail-label">Filename</div><div class="detail-value">${esc(batchMeta.filename) || '—'}</div>`,
+        `<div class="detail-label">Imported by</div><div class="detail-value">${esc(batchMeta.imported_by) || '—'}</div>`,
+        `<div class="detail-label">Imported at</div><div class="detail-value">${fmtAt(batchMeta.imported_at)}</div>`,
+        `<div class="detail-label">Batch status</div><div class="detail-value">${esc(batchMeta.status) || '—'}</div>`,
+        `<div class="detail-label">Observations</div><div class="detail-value">${batchMeta.observation_count != null ? esc(batchMeta.observation_count) : '—'}</div>`,
+      ]);
+    }
+    provenanceHtml = batchRows.join('');
+  } else {
+    provenanceHtml = [
+      `<div class="detail-label">Origin</div><div class="detail-value"><span class="origin-badge manual">Manual / Legacy</span></div>`,
+      `<div class="detail-label">Note</div><div class="detail-value">Row was created or updated manually. No import batch.</div>`,
+    ].join('');
+  }
+
   const back = document.createElement('div');
   back.className = 'modal-back';
   back.innerHTML = `
-    <div class="modal modal-sm">
+    <div class="modal modal-wide">
       <h2>${esc(row.title || 'Row details')}</h2>
-      <dl class="detail-list">
-        ${fields.map(([l, v]) => `<dt>${esc(l)}</dt><dd>${esc(v)}</dd>`).join('')}
-      </dl>
+      <div class="detail-section">
+        <h3>Row Content</h3>
+        <div class="detail-grid">${rowContentHtml}</div>
+      </div>
+      <div class="detail-section">
+        <h3>Audit</h3>
+        <div class="detail-grid">${auditHtml}</div>
+      </div>
+      <div class="detail-section">
+        <h3>Provenance</h3>
+        <div class="detail-grid">${provenanceHtml}</div>
+      </div>
       <div class="modal-actions">
         <button class="btn ghost" id="closeDetailsBtn">Close</button>
       </div>

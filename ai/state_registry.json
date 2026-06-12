@@ -82,5 +82,9 @@
   "phase-3-true-workbook-capture": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-12T09:43:45Z"
+  },
+  "phase-3-import-provenance": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-12T16:30:00Z"
   }
 }

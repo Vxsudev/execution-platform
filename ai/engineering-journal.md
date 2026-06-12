@@ -1210,3 +1210,113 @@ Smoke tested against the live DB with a full backup taken first; live DB restore
 ### P3-5 Dependency Status
 
 P3-5 (import provenance in row details modal) will READ `import_observations` + entries import metadata to surface per-row provenance. P3-4 creates the observation store; it adds NO modal/provenance UI (explicitly P3-5 scope). P3-5 is unblocked.
+
+---
+
+## P3-5: phase-3-import-provenance
+
+**Completed:** 2026-06-12T16:30:00Z
+**State:** RELEASE_APPROVED
+**Tasks:** 4/4 done
+**Invariants:** 5/5 PASS throughout
+
+### Summary
+
+The Details modal was redesigned from a narrow audit-only panel into a full-width provenance surface. Every row now exposes its complete content, audit metadata, and import origin in a single wide modal. Manual rows show a Manual / Legacy badge; imported rows show an Imported badge with batch source metadata and lazy-loaded batch details.
+
+### Capability / Branch
+
+P3-5 Import Provenance — feature slug `phase-3-import-provenance`. Branch: main.
+
+### Files Modified
+
+- `app/public/app.js`: Rewrote `openDetails()` — removed the former narrow `.modal-sm` `.detail-list` implementation; replaced with a `.modal-wide` three-section layout (Row Content, Audit, Provenance). Row Content renders all 14 fields (`type` through `status`) with long-text fields in `.detail-long` blocks and short fields in a `.detail-grid` 2-column layout. Audit section renders 4 fields (created_by, created_at, updated_by, updated_at). Provenance branch: if `row.import_batch_id` is set, origin badge = Imported + batch id + source sheet/row + lazy-loaded batch metadata (filename, imported_by, imported_at, status, observation_count); otherwise badge = Manual / Legacy. Lazy-load: `if (row.import_batch_id && isAdmin() && !state.imports.length) await loadImports()`. Click-outside-modal and Close button both remove the overlay.
+- `app/public/style.css`: Added `.modal-wide{width:760px}`, `.detail-section`, `.detail-section h3` (uppercase label bar), `.detail-grid{display:grid;grid-template-columns:140px 1fr}`, `.detail-label`, `.detail-value`, `.detail-long` (scrollable pre-wrap block), `.detail-long-label`, `.origin-badge`, `.origin-badge.imported` (blue tint), `.origin-badge.manual` (muted).
+- `app/README.md`: Added "Import Provenance (Phase 3)" section documenting row content display, audit section, provenance section (manual vs imported), visibility rules, and P3-6/P3-7 planned future work.
+- `ai/state_registry.json`: `phase-3-import-provenance` → RELEASE_APPROVED.
+
+### Backend Decision: Option A (read-side only)
+
+No new backend route was created. The modal reads `import_batch_id`, `import_source_sheet`, `import_source_row` from the rows already in `state.rows` (loaded at login via `GET /api/rows`). When an imported row is opened, `state.imports` is lazy-loaded via the existing `GET /api/imports` (admin-only). No `GET /api/imports/:id`, no observations endpoint, no schema change. The P3-4 observation store is available but not surfaced in P3-5 — deferred to a future drill-down view.
+
+### Modal Redesign
+
+| Before (P3-4 and earlier) | After (P3-5) |
+|--------------------------|--------------|
+| `.modal-sm` (320px) | `.modal-wide` (760px) |
+| `.detail-list` (dt/dd) | `.detail-grid` (label/value grid) |
+| 4 audit fields only | Row Content (14) + Audit (4) + Provenance |
+| No origin badge | Manual / Legacy or Imported badge |
+| No import source data | Batch id, sheet, row, filename, imported_by, imported_at |
+
+### CSS Additions
+
+8 new rules added to style.css (no design tokens changed; all use existing CSS custom properties):
+`.modal-wide`, `.detail-section`, `.detail-section h3`, `.detail-grid`, `.detail-label`, `.detail-value`, `.detail-long`, `.detail-long-label`, `.origin-badge`, `.origin-badge.imported`, `.origin-badge.manual`.
+
+### Smoke Test Results (backend)
+
+| Check | Result |
+|-------|--------|
+| node --check server.js | 0 |
+| node --check public/app.js | 0 |
+| Invariants 5/5 | PASS |
+| GET /api/rows returns import_batch_id / source fields | PASS |
+| Admin login works | PASS |
+| GET /api/rows: no password_hash in payload | PASS |
+| GET /api/imports: id, filename, imported_by, imported_at, status, observation_count | PASS |
+| Vasu (track_owner) → 403 on import routes | PASS |
+| Anon → 401 on import routes | PASS |
+
+### Smoke Test Results (frontend)
+
+| Check | Result |
+|-------|--------|
+| Admin opens Rows page | PASS |
+| Details modal is .modal-wide (not .modal-sm) | PASS |
+| All 14 row content fields render | PASS |
+| Audit section shows 4 fields | PASS |
+| Manual row: "Manual / Legacy" badge, no batch fields | PASS |
+| Imported row: "Imported" badge + batch id + source sheet + source row | PASS |
+| Imported row with loaded state.imports: filename + imported_by + imported_at | PASS |
+| No crash on NULL import_batch_id | PASS |
+| state.imports lazy-load for admin + imported row | PASS |
+| Close button removes modal | PASS |
+| Click-outside-modal removes modal | PASS |
+
+### Regression Smoke Results
+
+| Check | Result |
+|-------|--------|
+| Import History renders (admin) | PASS |
+| Delete Import Batch works | PASS |
+| Duplicate badge + checkbox in preview | PASS |
+| Observation count column in history table | PASS |
+| Manual row creation (import_batch_id = NULL) | PASS |
+| Dashboard renders | PASS |
+| User management works | PASS |
+| Invariants 5/5 | PASS |
+
+### Invariant Status
+
+5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+### DB Hygiene
+
+No test data written to live DB during verification. Smoke confirmed against existing data (65 entries with import_batch_id = NULL, 1 pre-existing batch id=9 with 0 observations). Live DB not polluted.
+
+### Architectural Notes
+
+- `state.imports` lazy-load is admin-gated (`isAdmin()`) — track owners never trigger `GET /api/imports`, preventing a 403 crash in the modal for non-admin users viewing imported rows.
+- The `ROW_FIELDS` array inside `openDetails()` is a local constant intentionally separate from `state.fields` — it controls modal display order and `long` flag, which differs from the create/edit form's field definitions.
+- `.modal-sm` CSS class retained for backward compatibility but no longer used by any modal in the codebase (safe to remove in a future cleanup).
+
+### Unresolved Risks / Open Items
+
+- Observation detail is not yet surfaced in the modal (P3-4 created the store; P3-5 reads only the batch-level observation_count from `GET /api/imports`).
+- P3-6 (inline dense cell reveal) and P3-7 (row/cell click interaction) remain planned and are explicitly noted in the README.
+- No multi-sheet observation detail — single-sheet limitation carried from P3-4.
+
+### P3-6 / P3-7 Dependency Status
+
+P3-6 (inline dense cell reveal) and P3-7 (row/cell click interaction) are unblocked. Both can build on the `.detail-long` / `.detail-grid` CSS foundation added in P3-5.
