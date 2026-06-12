@@ -99,6 +99,10 @@ tr:hover td{background:var(--panel2)}
 .import-h{font-size:13px;font-weight:600;margin:18px 0 6px}
 button[disabled]{opacity:.5;cursor:not-allowed}
 .import-summary .warn{color:#9a6700;font-weight:600}
+.badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:600;margin-left:4px;vertical-align:middle}
+.badge.warn{background:#fff3cd;color:#856404;border:1px solid #ffc107}
+.warn-text{color:#9a6700;font-weight:600}
+.import-dup-label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--muted)}
 .dash{padding:14px 0;display:grid;gap:14px}
 .dash-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}

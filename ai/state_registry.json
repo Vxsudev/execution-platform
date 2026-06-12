@@ -74,5 +74,9 @@
   "phase-3-delete-import-batch": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-12T08:41:37Z"
+  },
+  "phase-3-duplicate-detection": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-12T09:12:29Z"
   }
 }

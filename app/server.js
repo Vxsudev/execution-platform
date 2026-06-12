@@ -409,6 +409,40 @@ function toImportRow(data) {
   return out;
 }
 
+function normalizeDupValue(v) {
+  if (v == null || v === '') return '';
+  return String(v).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function buildLogicalDupKey(data) {
+  return [normalizeDupValue(data.title), normalizeDupValue(data.owner), normalizeDupValue(data.track)].join('|');
+}
+
+const DUP_LOGIC_SQL = "SELECT id FROM entries WHERE lower(trim(title))=? AND lower(trim(coalesce(owner,'')))=? AND lower(trim(coalesce(track,'')))=? LIMIT 1";
+
+function findDuplicateForImportRow(data, sourceSheet, sourceRow) {
+  if (sourceSheet && sourceRow) {
+    const byPos = db.prepare(
+      'SELECT id FROM entries WHERE import_source_sheet = ? AND import_source_row = ? LIMIT 1'
+    ).get(sourceSheet, sourceRow);
+    if (byPos) {
+      const byLogic = db.prepare(DUP_LOGIC_SQL).get(
+        normalizeDupValue(data.title), normalizeDupValue(data.owner || ''), normalizeDupValue(data.track || ''));
+      return {
+        duplicate: true,
+        duplicate_reason: byLogic ? 'source_and_logical_match' : 'source_row_match',
+        duplicate_entry_id: byPos.id
+      };
+    }
+  }
+  const byLogic = db.prepare(DUP_LOGIC_SQL).get(
+    normalizeDupValue(data.title), normalizeDupValue(data.owner || ''), normalizeDupValue(data.track || ''));
+  if (byLogic) {
+    return { duplicate: true, duplicate_reason: 'logical_match', duplicate_entry_id: byLogic.id };
+  }
+  return { duplicate: false };
+}
+
 app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const { filename, content_base64 } = req.body || {};
@@ -423,14 +457,17 @@ app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
   const rows = [];
   const skipped_rows = [];
   let warning_count = 0;
+  let duplicate_count = 0;
   for (const { row_number, data } of parsed.rows) {
     const c = classifyImportRow(data);
     if (!c.importable) { skipped_rows.push({ row_number, reason: c.reason }); continue; }
     warning_count += c.warnings.length;
-    rows.push({ row_number, warnings: c.warnings, data: c.data });
+    const dupResult = findDuplicateForImportRow(c.data, parsed.sheet, row_number);
+    if (dupResult.duplicate) duplicate_count++;
+    rows.push({ row_number, warnings: c.warnings, data: c.data, duplicate: dupResult.duplicate, duplicate_reason: dupResult.duplicate_reason, duplicate_entry_id: dupResult.duplicate_entry_id });
   }
   res.json({
-    summary: { sheet: parsed.sheet, total_rows: parsed.rows.length, importable_rows: rows.length, skipped_rows: skipped_rows.length, warning_count },
+    summary: { sheet: parsed.sheet, total_rows: parsed.rows.length, importable_rows: rows.length, skipped_rows: skipped_rows.length, warning_count, duplicate_count },
     rows,
     skipped_rows,
   });
@@ -443,25 +480,36 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
     return res.status(400).json({ error: 'filename must be a non-empty string ending in .xlsx' });
   const sheetName = typeof sheet === 'string' ? sheet : '';
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows array is required' });
+  const allow_duplicates = req.body.allow_duplicates === true;
 
-  let importable_rows = 0, skipped_rows = 0, warning_count = 0;
-  for (const row_item of rows) {
-    const c = classifyImportRow(row_item.data || row_item);
-    if (c.importable) { importable_rows++; warning_count += c.warnings.length; }
-    else skipped_rows++;
-  }
+  // First pass: classify + detect duplicates, compute all counts before INSERT.
+  let importable_rows = 0, parse_skipped = 0, warning_count = 0, duplicate_count = 0;
+  const classified = rows.map((row_item, i) => {
+    const { data, row_number } = row_item || {};
+    const c = classifyImportRow(data || {});
+    if (!c.importable) { parse_skipped++; return { index: i, c, row_number, dupResult: null }; }
+    importable_rows++;
+    warning_count += c.warnings.length;
+    const dupResult = findDuplicateForImportRow(c.data, sheetName, row_number);
+    if (dupResult.duplicate) duplicate_count++;
+    return { index: i, c, row_number, dupResult };
+  });
+
+  const dup_skipped = allow_duplicates ? 0 : duplicate_count;
+  const total_skipped = parse_skipped + dup_skipped;
 
   const batchInfo = db.prepare(
     'INSERT INTO imports (filename, imported_by, total_rows, importable_rows, skipped_rows, warning_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(filename, req.user.username, rows.length, importable_rows, skipped_rows, warning_count, 'complete');
+  ).run(filename, req.user.username, rows.length, importable_rows, total_skipped, warning_count, 'complete');
   const batch_id = Number(batchInfo.lastInsertRowid);
 
   const ids = [];
   const skipped = [];
-  rows.forEach((row_item, i) => {
-    const { data, row_number } = row_item || {};
-    const c = classifyImportRow(data || {});
-    if (!c.importable) { skipped.push({ index: i, reason: c.reason }); return; }
+  for (const { index: i, c, row_number, dupResult } of classified) {
+    if (!c.importable) { skipped.push({ index: i, reason: c.reason }); continue; }
+    if (!allow_duplicates && dupResult && dupResult.duplicate) {
+      skipped.push({ index: i, reason: 'duplicate' }); continue;
+    }
     const row = toImportRow(c.data);
     row.created_by = req.user.username;
     row.updated_by = req.user.username;
@@ -476,8 +524,8 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
     } catch (e) {
       skipped.push({ index: i, reason: 'insert failed: ' + (e && e.message ? e.message : 'unknown error') });
     }
-  });
-  res.json({ ok: true, batch_id, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped });
+  }
+  res.json({ ok: true, batch_id, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped, duplicate_count, duplicate_skipped_count: dup_skipped });
 });
 
 app.get('/api/imports', requireAuth, (req, res) => {

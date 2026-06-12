@@ -1025,3 +1025,111 @@ Admin-only DELETE /api/imports/:id implemented with full transactional safety. A
 - DELETE /api/rows/:id (single-row delete) still available separately for manual row management
 - Next: P3-3 duplicate detection
 
+---
+
+## P3-3: phase-3-duplicate-detection
+
+**Completed:** 2026-06-12T09:20:00Z
+**State:** RELEASE_APPROVED
+**Tasks:** 4/4 done
+**Invariants:** 5/5 PASS throughout
+
+### Summary
+
+Layered duplicate detection added to the XLSX import preview and commit flow. Re-importing the same workbook or same logical rows no longer silently inflates the execution table. Default commit behavior skips duplicates; admin can explicitly override with allow_duplicates=true.
+
+### Capability
+
+P3-3 Duplicate Detection — feature slug: phase-3-duplicate-detection
+
+### Branch
+
+main
+
+### Files Modified
+
+- `app/server.js`: Added `normalizeDupValue`, `buildLogicalDupKey`, `findDuplicateForImportRow` helpers. Updated `POST /api/import/preview` to run dup detection per row and include `duplicate_count` in summary. Refactored `POST /api/import/commit` to two-pass approach (classify+detect first, insert second), respect `allow_duplicates` payload flag, track `duplicate_count`/`duplicate_skipped_count`.
+- `app/public/app.js`: Added `allowDuplicates: false` to state. Updated `renderImportPanel()` to show duplicate count in summary, Duplicate badge on affected rows, and "Import duplicates anyway" checkbox. Updated `bindImportActions()` to reset `allowDuplicates` on preview, bind checkbox, include `allow_duplicates` in commit payload, and show `duplicate_skipped_count` in post-commit alert.
+- `app/public/style.css`: Added `.badge`, `.badge.warn`, `.warn-text`, `.import-dup-label` rules.
+- `app/README.md`: Added Duplicate Detection section under Import Batch Ledger.
+- `ai/state_registry.json`: `phase-3-duplicate-detection` → RELEASE_APPROVED.
+- `ai/recon/phase-3-duplicate-detection-recon.md`: Created.
+- `specs/phase-3-duplicate-detection.md`: Created.
+- `tasks/phase-3-duplicate-detection-001..004.md`: Created and completed.
+
+### Duplicate Detection Strategy
+
+**Layer 1 — Source-position match:** Query existing entries WHERE `import_source_sheet = ?` AND `import_source_row = ?`. Catches same workbook re-imported at same row positions. Reason code: `source_row_match`.
+
+**Layer 2 — Logical match:** Normalize `title + owner + track` (trim, collapse spaces, lowercase), query `lower(trim(title))=? AND lower(trim(coalesce(owner,'')))=? AND lower(trim(coalesce(track,'')))=?`. Catches duplicates when positions shifted or source metadata absent. Reason code: `logical_match`.
+
+When both match: reason code `source_and_logical_match`.
+
+No DB schema changes. No unique constraints. No new tables.
+
+### Preview Changes
+
+- Each importable row in the preview response now carries: `duplicate`, `duplicate_reason`, `duplicate_entry_id`
+- `summary.duplicate_count` added
+- Preview never writes; duplicate detection is read-only
+
+### Commit Changes
+
+- `allow_duplicates: boolean` added to commit payload (default false)
+- Two-pass logic: pass 1 classifies + detects dups (all counts computed); pass 2 inserts
+- Default (allow_duplicates=false): duplicate rows skipped, added to `skipped` array with reason `'duplicate'`
+- Override (allow_duplicates=true): all importable rows inserted with full batch metadata
+- Response adds `duplicate_count` and `duplicate_skipped_count`
+- Batch record always created even when `inserted_count = 0`
+- `skipped_rows` in batch = parse-skips + dup-skips (when allow_duplicates=false)
+
+### Frontend Changes
+
+- Summary line: "N duplicate(s)" shown in amber when duplicates detected
+- Preview table: Duplicate badge (amber) on affected rows
+- "Import duplicates anyway" checkbox renders below Commit button only when `duplicate_count > 0`
+- Post-commit alert includes `duplicate_skipped_count` if > 0
+- P3-2 Delete batch button and flow preserved unchanged
+
+### Invariant Status
+
+5/5 PASS (INV-001, INV-003, INV-004, INV-005, INV-006)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| node --check app/server.js | 0 |
+| node --check app/public/app.js | 0 |
+| First preview: duplicate_count = 0 | PASS |
+| First commit: 3 rows inserted, batch_id=6 | PASS |
+| Second preview: duplicate_count = 3, source_and_logical_match | PASS |
+| Second commit (allow_duplicates=false): inserted=0, dup_skipped=3 | PASS |
+| Batch created when inserted_count=0 | PASS |
+| Second commit (allow_duplicates=true): inserted=3, dup_skipped=0 | PASS |
+| Inserted rows have import_batch_id/source metadata | PASS |
+| GET /api/imports: works | PASS |
+| DELETE /api/imports/:id: works (P3-2 preserved) | PASS |
+| Manual rows: import_batch_id = NULL (65/65) | PASS |
+| Vasu → 403 on preview/commit | PASS |
+| Anon → 401 on preview/commit | PASS |
+| Invariants 5/5 | PASS |
+| No [FILL:] residue in task files | PASS |
+| Git status: only allowed surfaces modified | PASS |
+| DB restored to original state (65 entries, 0 imports) | PASS |
+
+### Architectural Notes
+
+- SQL double-quote vs single-quote: SQLite string literals must use single quotes. JS string containing SQL with single quotes extracted to a `const DUP_LOGIC_SQL` using double-quoted JS string to avoid the quoting conflict.
+- `db.prepare()` called inline on every duplicate check: acceptable for import-time latency; no performance concern for batch operations.
+- `allow_duplicates` defaults to `false` (not `undefined`) — `req.body.allow_duplicates === true` is a strict equality check that rejects any truthy non-boolean value.
+
+### Unresolved Risks
+
+- No import_observations cascade (P3-4 — table doesn't exist yet; not in P3-3 scope)
+- Logical match does not exclude entries with import_batch_id = NULL (manual rows can also be logical duplicates — by design, since we want to prevent re-importing rows that were manually entered)
+
+### P3-4 Dependency Status
+
+P3-4 (true workbook capture) requires creating `import_observations` table. P3-3 does NOT create this table. P3-4 is unblocked by P3-3 completion.
+

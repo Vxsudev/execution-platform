@@ -251,7 +251,37 @@ Admins can delete an import batch via the **Delete** button in the Import Histor
 - Non-admin attempts return `403`; unauthenticated attempts return `401`.
 - The UI refreshes Import History and Rows after deletion and shows the count of deleted entries.
 
-P3-3 duplicate detection is planned next.
+### Duplicate Detection (Phase 3)
+
+The import pipeline detects probable duplicate rows before and during commit.
+
+**Detection strategy — two layers run for every importable row:**
+
+1. **Source-position match** — if the incoming row has a `source_sheet` and `source_row`, the system queries for any existing entry with the same `import_source_sheet` and `import_source_row`. Catches re-importing the same workbook at unchanged row positions.
+
+2. **Logical match** — normalized `title + owner + track` comparison (trimmed, collapsed whitespace, case-insensitive). Catches duplicates even when the workbook row positions shifted or source metadata is absent.
+
+**Preview behavior:**
+- Every importable row in the preview response carries `duplicate`, `duplicate_reason`, and `duplicate_entry_id` fields.
+- The preview summary includes `duplicate_count`.
+- The Import tab shows a **Duplicate** badge on affected rows and a duplicate count in the summary line.
+- Preview never writes to the database.
+
+**Commit behavior (default — skip duplicates):**
+- Duplicate rows are skipped by default and reported as `duplicate_skipped_count` in the commit response.
+- A batch record is always created, even if `inserted_count = 0` (all rows were duplicates). This preserves import attempt history.
+
+**Admin override:**
+- If duplicates exist, an **"Import duplicates anyway"** checkbox appears below the Commit button.
+- Checking it and committing sends `allow_duplicates: true`; the server imports all importable rows regardless of duplicate status, and they receive full `import_batch_id` / source metadata.
+
+**Safety guarantees:**
+- Duplicate detection is non-destructive — no existing data is modified or deleted.
+- The **Delete batch** button (P3-2) remains the rollback mechanism for unwanted imports.
+- Manual rows (`import_batch_id = NULL`) are never affected.
+
+**Planned future work:**
+- True workbook capture (`import_observations` table) is planned for P3-4 and is **not** implemented here.
 
 ## Out of Scope (v1)
 

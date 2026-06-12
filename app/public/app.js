@@ -3,7 +3,7 @@ const $app = document.getElementById('app');
 const state = {
   user: null, fields: [], types: [], statuses: [], tracks: [], rows: [], editing: null,
   search: '', filters: { status: '', track: '', type: '' }, workspace: 'all',
-  page: 'rows', users: [], importPreview: null, imports: [], importFilename: null,
+  page: 'rows', users: [], importPreview: null, imports: [], importFilename: null, allowDuplicates: false,
 };
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
@@ -514,6 +514,7 @@ async function loadImports() {
 
 function renderImportPanel() {
   const p = state.importPreview;
+  const dupCount = p ? (p.summary.duplicate_count || 0) : 0;
   const summary = p ? `
     <div class="import-summary">
       <strong>${esc(p.summary.sheet)}</strong> —
@@ -521,6 +522,7 @@ function renderImportPanel() {
       <span class="ok">${p.summary.importable_rows} importable</span> ·
       <span class="warn">${p.summary.warning_count} warning${p.summary.warning_count === 1 ? '' : 's'}</span> ·
       <span class="bad">${p.summary.skipped_rows} skipped</span>
+      ${dupCount > 0 ? ` · <span class="warn-text">${dupCount} duplicate${dupCount === 1 ? '' : 's'}</span>` : ''}
     </div>` : '';
   const importable = (p && p.rows.length) ? `
     <h3 class="import-h">Importable rows preview (first 10 of ${p.rows.length})</h3>
@@ -529,7 +531,8 @@ function renderImportPanel() {
     </tr></thead><tbody>
       ${p.rows.slice(0, 10).map(r => `<tr>
         <td>${r.row_number}</td>
-        <td>${esc(r.data.owner)}</td><td>${esc(r.data.track)}</td><td>${esc(r.data.title)}</td>
+        <td>${esc(r.data.owner)}</td><td>${esc(r.data.track)}</td>
+        <td>${esc(r.data.title)}${r.duplicate ? ` <span class="badge warn" title="${esc(r.duplicate_reason || 'duplicate')}">Duplicate</span>` : ''}</td>
         <td>${esc(r.data.status)}</td><td>${esc(r.data.type)}</td>
         <td class="trunc" title="${esc(r.warnings.join('; '))}">${esc(r.warnings.join('; ') || '—')}</td>
       </tr>`).join('')}
@@ -566,6 +569,7 @@ function renderImportPanel() {
         <input type="file" id="importFile" accept=".xlsx" />
         <button class="btn" id="importPreviewBtn">Preview</button>
         <button class="btn primary" id="importCommitBtn"${commitDisabled}>Commit Import</button>
+        ${(p && dupCount > 0) ? `<label class="import-dup-label"><input type="checkbox" id="importAllowDupsCb"${state.allowDuplicates ? ' checked' : ''} /> Import duplicates anyway</label>` : ''}
       </div>
       <div class="error" id="importErr"></div>
       ${summary}
@@ -602,9 +606,12 @@ function bindImportActions() {
       const data = await api('/import/preview', { method: 'POST', body: { filename: file.name, content_base64 } });
       state.importPreview = data;
       state.importFilename = file.name;
+      state.allowDuplicates = false;
       renderApp();
     } catch (e) { setErr(e.message); }
   };
+  const dupCb = document.getElementById('importAllowDupsCb');
+  if (dupCb) dupCb.onchange = () => { state.allowDuplicates = dupCb.checked; };
   const commitBtn = document.getElementById('importCommitBtn');
   if (commitBtn) commitBtn.onclick = async () => {
     setErr('');
@@ -616,15 +623,20 @@ function bindImportActions() {
         filename: state.importFilename || '',
         sheet: p.summary.sheet || '',
         rows: p.rows.map(r => ({ data: r.data, row_number: r.row_number })),
+        allow_duplicates: state.allowDuplicates || false,
       } });
       state.importPreview = null;
       state.importFilename = null;
+      state.allowDuplicates = false;
       state.page = 'rows';
       state.workspace = 'all';
       await loadRows();
       await loadImports();
       renderApp();
-      alert(`Imported ${res.inserted_count} row(s)` + (res.skipped_count ? `, ${res.skipped_count} skipped` : '') + '.');
+      let msg = `Imported ${res.inserted_count} row(s)`;
+      if (res.skipped_count) msg += `, ${res.skipped_count} skipped`;
+      if (res.duplicate_skipped_count) msg += ` (${res.duplicate_skipped_count} duplicate${res.duplicate_skipped_count === 1 ? '' : 's'} skipped)`;
+      alert(msg + '.');
     } catch (e) { setErr(e.message); }
   };
   document.querySelectorAll('[data-del-batch]').forEach((btn) => {
