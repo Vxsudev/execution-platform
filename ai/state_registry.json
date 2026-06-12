@@ -94,5 +94,9 @@
   "phase-3-row-click-interaction": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-12T10:35:13Z"
+  },
+  "phase-3-dashboard-relevance": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-12T10:58:24Z"
   }
 }

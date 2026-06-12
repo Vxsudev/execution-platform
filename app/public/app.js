@@ -33,6 +33,10 @@ function visibleRowsForWorkspace(rows) {
   if (state.workspace === 'my') return rows.filter(r => userScope().includes(r.track));
   return rows;
 }
+function dashboardRows() {
+  if (isTrackOwner()) return visibleRowsForWorkspace(state.rows);
+  return state.rows;
+}
 
 // Table columns: 13 Sheet-2 contract columns in workbook order, then a compact Type tag column.
 const LIST_COLS = [
@@ -140,7 +144,7 @@ function renderApp() {
         <button class="ws-tab${isRowsPage ? ' active' : ''}" id="rowsPageBtn">Rows</button>
         <button class="ws-tab${isDashPage ? ' active' : ''}" id="dashPageBtn">Dashboard</button>
       </div>
-      ${isTrackOwner() && isRowsPage ? `
+      ${isTrackOwner() && (isRowsPage || isDashPage) ? `
         <div class="ws-tabs">
           <button class="ws-tab${state.workspace === 'all' ? ' active' : ''}" id="wsAll">All Tracks</button>
           <button class="ws-tab${state.workspace === 'my' ? ' active' : ''}" id="wsMy">My Track</button>
@@ -184,7 +188,7 @@ function renderApp() {
   };
   document.getElementById('rowsPageBtn').onclick = () => { state.page = 'rows'; renderApp(); };
   document.getElementById('dashPageBtn').onclick = async () => { state.page = 'dashboard'; await loadRows(); renderApp(); };
-  if (isTrackOwner() && isRowsPage) {
+  if (isTrackOwner() && (isRowsPage || isDashPage)) {
     document.getElementById('wsAll').onclick = () => { state.workspace = 'all'; renderApp(); };
     document.getElementById('wsMy').onclick  = () => { state.workspace = 'my';  renderApp(); };
   }
@@ -353,12 +357,12 @@ function parseDateSafe(value) {
   return isNaN(t) ? null : new Date(t);
 }
 
-function blockedRows() { return state.rows.filter((r) => r.status === 'Blocked'); }
+function blockedRows() { return dashboardRows().filter((r) => r.status === 'Blocked'); }
 
 function overdueRows() {
   const now = new Date();
   const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  return state.rows.filter((r) => {
+  return dashboardRows().filter((r) => {
     if (isClosed(r)) return false;
     const d = parseDateSafe(r.target_end_date);
     return d != null && d.getTime() < today;
@@ -366,19 +370,19 @@ function overdueRows() {
 }
 
 function recentRows() {
-  return [...state.rows]
+  return [...dashboardRows()]
     .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))
     .slice(0, 8);
 }
 
 function openNextActions() {
-  return state.rows
+  return dashboardRows()
     .filter((r) => r.next_action && String(r.next_action).trim() && isOpen(r))
     .slice(0, 10);
 }
 
 function dashStats() {
-  const rows = state.rows;
+  const rows = dashboardRows();
   return {
     total: rows.length,
     open: rows.filter(isOpen).length,
@@ -410,9 +414,15 @@ function dashMiniTable(rows, cols) {
 // Execution-health surface computed entirely from state.rows (no API, no canonicalization).
 function renderDashboard() {
   const s = dashStats();
+  const scopeLabel = isTrackOwner()
+    ? (state.workspace === 'my'
+        ? `My Track (${userScope().join(', ') || 'unscoped'})`
+        : 'All Tracks')
+    : 'All Tracks';
   const idCols = [{ key: 'title', label: 'Title', trunc: true }, { key: 'owner', label: 'Owner' }, { key: 'track', label: 'Track' }];
   return `
     <div class="dash">
+      <div class="dash-scope-label">${esc(scopeLabel)}</div>
       <div class="card">
         <h3>Execution health</h3>
         <div class="stat-chips">
@@ -423,9 +433,9 @@ function renderDashboard() {
         </div>
       </div>
       <div class="dash-row">
-        <div class="card"><h3>Items by status</h3>${dashCountList(byCount(state.rows, 'status'))}</div>
-        <div class="card"><h3>Items by track</h3>${dashCountList(byCount(state.rows, 'track'))}</div>
-        <div class="card"><h3>Owner load (top 10)</h3>${dashCountList(byCount(state.rows, 'owner'), 10)}</div>
+        <div class="card"><h3>Items by status</h3>${dashCountList(byCount(dashboardRows(), 'status'))}</div>
+        <div class="card"><h3>Items by track</h3>${dashCountList(byCount(dashboardRows(), 'track'))}</div>
+        <div class="card"><h3>Owner load (top 10)</h3>${dashCountList(byCount(dashboardRows(), 'owner'), 10)}</div>
       </div>
       <div class="dash-row">
         <div class="card"><h3>Blocked items</h3>${dashMiniTable(blockedRows(), idCols.concat([{ key: 'next_action', label: 'Next action', trunc: true }]))}</div>

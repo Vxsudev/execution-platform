@@ -391,7 +391,6 @@ Every data row in the Rows table is now a clickable navigation target.
   Each toggle call uses `e.stopPropagation()` to prevent the row click from firing.
 - **Keyboard accessible.** Tab to any row (`tabindex="0"`), then press Enter to open Details.
   A visible focus-visible ring confirms keyboard focus.
-- **Dashboard relevance planned for P3-8.**
 
 ## Dense Cell Inline Reveal (Phase 3)
 
@@ -413,8 +412,45 @@ now have an inline expand/collapse toggle instead of a hover-only tooltip.
   single-click timer that opens the Details modal. The toggle itself calls
   `e.stopPropagation()` so More/Less never triggers a Details open.
 
-**Planned future work:**
-- **P3-8:** Dashboard relevance for long-text insight fields.
+## Dashboard Relevance (Phase 3)
+
+The dashboard scope adapts to the signed-in user's role, using a unified
+`dashboardRows()` helper that gates all 8 dashboard widgets from a single source.
+No backend changes, no permission model changes — frontend-only relevance.
+
+### Admin dashboard
+- All rows, no scope toggle.
+- The workspace toggle is **not shown** in the topbar for admins on the Dashboard page.
+- All 8 widgets (Execution health, Items by status, Items by track, Owner load, Blocked
+  items, Overdue / target-risk, Recently updated, Open next actions) reflect the full row set.
+
+### Viewer dashboard
+- All rows, no scope toggle.
+- Identical behavior to admin: all widgets show all rows; no toggle visible.
+
+### Track owner dashboard
+- **All Tracks / My Track workspace toggle** appears in the topbar when the track owner is
+  on the Dashboard page (same toggle used on the Rows page).
+- **All Tracks (default or explicit):** all widgets show all rows. Scope label reads
+  `All Tracks`.
+- **My Track:** all widgets scope to the track owner's assigned-track rows (same
+  `track_scope` filter as the Rows page). Scope label reads `My Track (track1, track2, ...)`.
+- Toggling between All Tracks and My Track updates all 8 widgets instantly (no reload).
+- If the track owner has no rows in their assigned tracks, widgets show zeros — no crash.
+
+### dashboardRows() helper
+`dashboardRows()` is the single row-sourcing function for all dashboard widgets:
+- For `track_owner` with `workspace === 'my'`: returns `visibleRowsForWorkspace(state.rows)` (assigned-track rows only).
+- For all other roles (admin, viewer) and for `track_owner` with `workspace === 'all'`: returns `state.rows` (all rows).
+
+All helper functions (`dashStats`, `blockedRows`, `overdueRows`, `recentRows`,
+`openNextActions`, `byCount` calls in `renderDashboard`) call `dashboardRows()` rather
+than `state.rows` directly.
+
+### Scope label
+A `dash-scope-label` element at the top of the dashboard panel shows the current scope:
+- Track owner, My Track: `My Track (track1, ...)` (comma-separated assigned tracks)
+- All other cases: `All Tracks`
 
 ## Out of Scope (v1)
 
