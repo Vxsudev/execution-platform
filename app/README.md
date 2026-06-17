@@ -133,8 +133,14 @@ username, password, role, and (for track_owner) track scope → submits.
 | Role | Row access | User management |
 |------|-----------|-----------------|
 | admin | Full CRUD across all tracks | Full user management |
-| track_owner | Create/edit own track rows; read all | None |
-| viewer | Read all rows | None |
+| track_owner | Create/edit any row across all tracks; delete is admin-only | None |
+| viewer | Create/edit any row across all tracks; delete is admin-only | None |
+
+> **Access-control update (2026-06-18):** task/experiment **create and edit** are open to
+> every authenticated user, for all owners and tracks. Roles no longer gate row editing.
+> Roles still control **user management** and **XLSX import** (admin-only), **row delete**
+> (admin-only), and which navigation tabs / workspace toggle appear. "My Track vs All" is a
+> view/filter convenience only — it does not restrict editing.
 
 ### Password handling
 
@@ -187,21 +193,25 @@ Available to all authenticated users. Shows all rows across all six tracks. Sear
 filter controls apply across all rows.
 
 ### My Track Workspace
-Available to `track_owner` role only. Shows only rows in the user's assigned track scope.
-New row and Edit controls are enabled only for rows in assigned tracks. Delete is
-admin-only regardless of workspace.
+A view/filter convenience available to `track_owner` role via the All Tracks / My Track
+toggle. "My Track" narrows the visible row set (and dashboard widgets) to the user's
+assigned track scope. It does **not** restrict editing — a track_owner can switch to All
+Tracks and create/edit any row. Delete remains admin-only regardless of workspace.
 
 ### Frontend control visibility
 
-| Control | admin | track_owner (All Tracks) | track_owner (My Track) | viewer |
-|---------|-------|--------------------------|------------------------|--------|
-| New row | ✓ | — | ✓ (assigned tracks only) | — |
-| Edit | ✓ all rows | — | ✓ assigned track rows | — |
-| Delete | ✓ | — | — | — |
-| Details | ✓ | ✓ | ✓ | ✓ |
+| Control | admin | track_owner | viewer |
+|---------|-------|-------------|--------|
+| New row | ✓ | ✓ | ✓ |
+| Edit (any row, any track) | ✓ | ✓ | ✓ |
+| Delete | ✓ | — | — |
+| Details | ✓ | ✓ | ✓ |
+| Users / Import tabs | ✓ | — | — |
 
-**Note:** Frontend controls are UX convenience only. Backend route guards (P2-1) enforce
-the same rules and will reject unauthorized raw API calls regardless of frontend state.
+**Note:** Create/edit are open to every authenticated user; the create/edit form's track
+dropdown lists all canonical tracks for everyone. Delete, XLSX import, and user management
+remain admin-only. Backend route guards enforce these rules and reject unauthorized raw API
+calls regardless of frontend state; unauthenticated requests are rejected with 401.
 
 ## Basic Dashboard (Phase 2)
 

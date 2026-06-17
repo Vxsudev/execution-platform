@@ -18,16 +18,11 @@ function userScope() {
 function isAdmin()      { return !!(state.user && state.user.role === 'admin'); }
 function isTrackOwner() { return !!(state.user && state.user.role === 'track_owner'); }
 function isViewer()     { return !isAdmin() && !isTrackOwner(); }
-function canCreateInCurrentWorkspace() {
-  if (isAdmin()) return true;
-  if (isTrackOwner()) return state.workspace === 'my' && userScope().length > 0;
-  return false;
-}
-function canEditRow(row)  {
-  if (isAdmin()) return true;
-  if (isTrackOwner()) return userScope().includes(row.track);
-  return false;
-}
+// Client requirement (2026-06-18): create+edit is open to every authenticated user,
+// for all tracks. Track ownership no longer gates editing — My Track vs All stays a
+// view/filter only (see visibleRowsForWorkspace / dashboardRows below).
+function canCreateInCurrentWorkspace() { return true; }
+function canEditRow(_row)  { return true; }
 function canDeleteRow()   { return isAdmin(); }
 function visibleRowsForWorkspace(rows) {
   if (state.workspace === 'my') return rows.filter(r => userScope().includes(r.track));
@@ -818,10 +813,10 @@ function openForm(row) {
     const full = f.input === 'textarea' ? ' full' : '';
     let control;
     if (f.input === 'select') {
-      const options = (f.key === 'track' && isTrackOwner()) ? userScope() : f.options;
-      const currentVal = (f.key === 'track' && isTrackOwner() && !val(f.key) && options.length > 0)
-        ? options[0]
-        : val(f.key);
+      // All canonical tracks are available to every user — track ownership no longer
+      // restricts which tracks a row can be assigned to (client requirement 2026-06-18).
+      const options = f.options;
+      const currentVal = val(f.key);
       const opts = options.map((o) =>
         `<option value="${esc(o)}" ${currentVal === o ? 'selected' : ''}>${esc(TYPE_LABEL[o] || o)}</option>`).join('');
       control = `<select data-k="${f.key}">${opts}</select>`;

@@ -1863,3 +1863,113 @@ R5 — Railway deploy smoke (first actual deployment, operator-executed using `d
 ### Execution Model Note
 
 In-session worker (same as R1/R2/R3). Governance intent fully honored.
+
+---
+
+### 2026-06-17
+
+### Feature
+
+remove-task-edit-access-controls
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/remove-task-edit-access-controls.md
+
+### Tasks
+
+
+- tasks/remove-task-edit-access-controls-001.md [backend]
+- tasks/remove-task-edit-access-controls-002.md [frontend]
+- tasks/remove-task-edit-access-controls-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-17T19:56:02Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Remove Task/Experiment Edit Access Controls
+
+**Capability:** Open task/experiment create+edit to any authenticated user
+**Branch:** main
+
+### Client Requirement Change (2026-06-18)
+
+Access controls are no longer required for task/experiment editing. Everyone who can log in
+may create and edit tasks/experiments for all owners/tracks. "My Track vs All" is retained
+only as a dashboard/filter/view convenience — never as an edit-permission boundary.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/server.js` | `canCreateRow` + `canEditRow` → return true (any authenticated user); call-site 403 guards left intact as defensive structure; signatures kept |
+| `app/public/app.js` | `canCreateInCurrentWorkspace()` + `canEditRow(row)` → return true; create/edit form track dropdown now lists all canonical tracks for every user (removed track_owner `userScope()` restriction) |
+| `app/README.md` | Roles table, "My Track Workspace", and "Frontend control visibility" sections updated to reflect open create/edit, My-Track-as-view-only, and admin-only delete/import/users |
+
+### Access Controls Removed
+
+- Backend `canCreateRow` / `canEditRow` role+track-scope restriction
+- Frontend `canCreateInCurrentWorkspace` / `canEditRow` restriction
+- Create/edit form track dropdown scope restriction (all tracks now available to everyone)
+
+### Preserved (unchanged)
+
+- Authentication: login, sessions, HMAC-signed cookies, production SESSION_SECRET guard
+- First-admin bootstrap (R3), DB_PATH (R2), Railway service config (R4)
+- Admin-only: row delete (`canDeleteRow`), XLSX import (`canImport`), user management (`canManageUsers`)
+- Canonical track-value validation in `validate()` (data integrity, not access control)
+- My Track vs All toggle + `visibleRowsForWorkspace` + `dashboardRows` (view/filter only)
+- Role labels retained (still gate tab/toggle visibility + user management); schema unchanged
+- No `app/db.js`, `index.html`, `style.css`, package files, or Railway docs change; no Docker/Postgres/deploy
+
+### Verification Results
+
+HTTP harness against a disposable temp DB (live `app/data.db` untouched, 90112 bytes before+after):
+
+| Check | Result |
+|-------|--------|
+| `node --check` server.js / db.js / public/app.js | PASS |
+| Dev boot smoke (NODE_ENV unset) | PASS — running line; live DB untouched |
+| Production boot smoke on temp DB (bootstrap admin created) | PASS |
+| Unauthenticated `POST /api/rows` → 401 | PASS |
+| track_owner creates row in T1 (outside scope) → 201 | PASS |
+| track_owner edits row to T5 (outside scope) → 200 | PASS |
+| viewer creates + edits row → 201 / 200 | PASS |
+| track_owner + viewer DELETE row → 403 (admin-only) | PASS |
+| track_owner GET /api/users → 403; import preview → 403 | PASS |
+| non-canonical track → 400 (validation intact) | PASS |
+| My Track toggle + view-filter helpers preserved | PASS (17 refs) |
+| Invariants 5/5 (pre-exec + pre-verify) | PASS |
+| Diff confined to allowed surfaces; no forbidden surfaces | CONFIRMED |
+
+HTTP harness total: **15/15 assertions passed**.
+
+### Unresolved Risks
+
+- Viewer role is now functionally an editor for rows (expected per client requirement). Roles
+  retained for tab/toggle visibility + user management gating.
+
+### Next Recommended Node
+
+Railway redeploy smoke (R5) — redeploy and re-run the critical-path smoke from
+`docs/railway-service-config.md`, confirming any authenticated user can create/edit.
+
+### Execution Model Note
+
+In-session worker (as in R1–R4). Supervisor enforced invariant gates, traversed the state
+machine, and wrote the canonical journal entry. Governance intent fully honored.

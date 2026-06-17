@@ -25,19 +25,13 @@ const REQUIRED_FIELDS = ROW_FIELDS.filter(f => f.required).map(f => f.key);
 function parseScope(user) {
   try { return JSON.parse(user.track_scope || '[]'); } catch (_) { return []; }
 }
-function canCreateRow(user, track) {
-  if (user.role === 'admin') return true;
-  if (user.role === 'track_owner') return parseScope(user).includes(track);
-  return false;
-}
-function canEditRow(user, existingRow, nextTrack) {
-  if (user.role === 'admin') return true;
-  if (user.role !== 'track_owner') return false;
-  const scope = parseScope(user);
-  if (!scope.includes(existingRow.track)) return false;
-  if (nextTrack !== undefined && nextTrack !== existingRow.track && !scope.includes(nextTrack)) return false;
-  return true;
-}
+// Client requirement (2026-06-18): task/experiment create+edit is open to every
+// authenticated user, for all owners/tracks. Track ownership is no longer an edit
+// boundary (it remains a dashboard/filter view only). Both call sites are behind
+// requireAuth, so "any authenticated user" is the floor. Signatures are kept so the
+// route guards (and the 403 fallback) stay structurally intact.
+function canCreateRow(_user, _track) { return true; }
+function canEditRow(_user, _existingRow, _nextTrack) { return true; }
 function canDeleteRow(user)   { return user.role === 'admin'; }
 function canImport(user)      { return user.role === 'admin'; }
 function canManageUsers(user) { return user.role === 'admin'; }
