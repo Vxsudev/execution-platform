@@ -4,7 +4,8 @@ Active v1 scaffold promoted from `prototypes/execution-table-app/`.
 
 ## Runtime Requirement
 
-Node >= 22.5
+Node >= 24 — the app uses the built-in `node:sqlite` module, which is unflagged
+since Node 23.4. Railway pins Node 24 via `app/.nvmrc`.
 
 ## Quick Start
 
@@ -14,6 +15,30 @@ npm start
 ```
 
 Server starts on http://localhost:3000 (or `PORT` env var).
+
+## Railway Deployment (R1)
+
+Deploy as a single Railway web service (Railway source deploy, no Docker):
+
+| Setting | Value |
+|---------|-------|
+| Root Directory | `app` (dependencies + lockfile live here; the repo-root `package.json` is not used) |
+| Build command | `npm ci` |
+| Start command | `npm start` (runs `node server.js`) |
+| Node version | 24 (pinned via `app/.nvmrc`; `engines.node` is `>=24`) |
+| Port | Railway injects `PORT`; the app honors it (defaults to 3000) |
+
+R1 covers runtime/start alignment only. Before a **production** deploy, two
+follow-ups are still required:
+
+- **R2 — data persistence:** the SQLite file is hardcoded inside the app
+  directory, so data is ephemeral on Railway. A configurable DB path + a Railway
+  persistent volume are needed for durable data.
+- **R3 — env + first admin:** set `SESSION_SECRET` (32+ chars) and
+  `NODE_ENV=production`, and seed the first admin user (production seeds none).
+
+For a throwaway **demo**, deploy with the settings above and `NODE_ENV` unset
+(seeds `admin/admin123`); data resets on each redeploy.
 
 ## Dev Login Credentials
 

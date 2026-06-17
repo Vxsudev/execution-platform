@@ -5,7 +5,7 @@
   "type": "commonjs",
   "description": "Simple full-stack table editor (Express + built-in node:sqlite + vanilla JS) derived from the astraX experiment sheet structure.",
   "engines": {
-    "node": ">=22.5"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node server.js"

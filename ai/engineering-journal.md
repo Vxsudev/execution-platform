@@ -1530,3 +1530,51 @@ None.
 ### Incidents
 
 None.
+
+---
+
+### 2026-06-17
+
+### Feature
+
+railway-r1-runtime-start-alignment
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/railway-r1-runtime-start-alignment.md
+
+### Tasks
+
+
+- tasks/railway-r1-runtime-start-alignment-001.md [backend]
+- tasks/railway-r1-runtime-start-alignment-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-17T08:11:37Z.
+All 2 tasks completed. Verification passed.
+
+### R1 Addendum (directive-required detail)
+
+- **Capability:** R1 Railway Runtime / Start Alignment (`railway-r1-runtime-start-alignment`). **Branch:** main.
+- **Files modified:** app/package.json (engines.node `>=22.5` → `>=24`), app/.nvmrc (new, `24`), app/README.md (Runtime Requirement → Node >= 24; new "Railway Deployment (R1)" section). OS artifacts: ai/recon/railway-r1-runtime-start-alignment-recon.md, specs/railway-r1-runtime-start-alignment.md, tasks/railway-r1-runtime-start-alignment-001/002.md, ai/state_registry.json, ai/engineering-journal.md.
+- **Railway blockers addressed:** B1 (deploy topology → documented Root Directory = `app`; no code change) and B2 (Node / `node:sqlite` flag → pinned Node 24 via `.nvmrc` + `engines>=24`).
+- **Node pin decision:** `.nvmrc=24` is the operative Nixpacks pin; `engines.node>=24` documents the floor. `--experimental-sqlite` intentionally NOT added (unnecessary at Node ≥23.4). Untracked repo-root `package.json` left as-is (inert under Root Directory `app`).
+- **Start command result:** unchanged — `npm start` → `node server.js`; boot smoke on PORT 3987 printed `execution-table-app running on http://localhost:3987`, stopped cleanly (SIGTERM/143). No DB rows created.
+- **Verification results:** node --check OK (server.js/db.js/public/app.js); npm start present; app/package-lock.json + app/server.js + app/db.js + app/public/* byte-for-byte unchanged; invariants 5/5 PASS (pre-exec + pre-verify gates).
+- **Execution model note:** R1 edits performed in-session; the supervisor's nested `claude --dangerously-skip-permissions` worker was not spawned (worker doctrine files ai/coding-patterns.md / ai/runtime-contracts.md are absent, and launching an unsupervised skip-permissions agent was avoided). Supervisor run with tasks complete to enforce the invariant gate, traverse EXECUTION_ACTIVE→VERIFICATION_REQUIRED→RELEASE_APPROVED, and write the canonical entry.
+- **Invariant status:** 5/5 PASS. **Final state:** RELEASE_APPROVED.
+- **Unresolved blockers:** B3 (hardcoded DB path → durability) and B4 (production first-admin bootstrap) remain open — deferred to R2/R3.
+- **Next Railway DAG node:** R2 — DB_PATH + Railway volume contract.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
