@@ -82,6 +82,10 @@ after the admin is created:
 
 **Production boots without bootstrap vars** proceed normally if an admin already exists.
 
+For the full step-by-step Railway deploy runbook (service settings, volume, env vars, first
+boot procedure, R5 smoke checklist, no-go conditions, rollback): see
+[`docs/railway-service-config.md`](../docs/railway-service-config.md).
+
 ## Dev Login Credentials
 
 | Username | Password  |

@@ -1768,3 +1768,98 @@ R4 — Railway service config.
 ### Execution Model Note
 
 In-session worker (same as R1, R2). `ai/coding-patterns.md` and `ai/runtime-contracts.md` are absent; supervisor's nested worker path not taken. Governance intent fully honored — invariant gates enforced, state machine traversed, canonical journal entry written by supervisor.
+
+---
+
+### 2026-06-17
+
+### Feature
+
+railway-r4-service-config-runbook
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/railway-r4-service-config-runbook.md
+
+### Tasks
+
+
+- tasks/railway-r4-service-config-runbook-001.md [backend]
+- tasks/railway-r4-service-config-runbook-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-17T12:26:55Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## R4 Addendum — Railway Service Config Runbook
+
+**Capability:** R4 — Railway service configuration runbook for R5 deploy smoke
+**Branch:** main
+**No blockers resolved (config/docs gate)**
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `docs/railway-service-config.md` | New file — full 8-section operator runbook |
+| `app/README.md` | Added one-line link to runbook from Railway Deployment (R3) section |
+
+### Railway Service Config Contract
+
+| Setting | Value |
+|---------|-------|
+| Platform | Railway source deploy (no Docker) |
+| Root Directory | `app` |
+| Build | `npm ci` |
+| Start | `npm start` |
+| Node | 24 (`app/.nvmrc`) |
+| Port | Railway-injected `PORT` |
+| `NODE_ENV` | `production` |
+| `SESSION_SECRET` | 32+ char random string |
+| Volume mount | `/data` |
+| `DB_PATH` | `/data/data.db` |
+| `BOOTSTRAP_ADMIN_USERNAME` | First boot only |
+| `BOOTSTRAP_ADMIN_PASSWORD` | First boot only; remove after admin created |
+
+### railway.toml Decision
+
+Explicit: NOT created. Nixpacks auto-detects all settings from `app/.nvmrc`, `app/package-lock.json`, and `app/package.json`. Railway dashboard manual configuration is sufficient for R5. If auto-detection fails at R5, `railway.toml` is the targeted fix at that time.
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| `node --check` db.js / server.js / public/app.js | PASS |
+| `npm run` → `start = node server.js` | PASS |
+| Docs consistency: 6 config facts verified | PASS |
+| No secrets in committed artifacts | PASS |
+| Invariants 5/5 PASS | PASS |
+| App source files byte-for-byte unchanged | CONFIRMED |
+
+### Unresolved Risks
+
+- Volume detection at R5: if Railway Nixpacks selects wrong root, fix Root Directory to `app`
+- If Nixpacks selects wrong Node, add `NIXPACKS_NODE_VERSION=24` env var
+
+### Next DAG Node
+
+R5 — Railway deploy smoke (first actual deployment, operator-executed using `docs/railway-service-config.md`).
+
+### Execution Model Note
+
+In-session worker (same as R1/R2/R3). Governance intent fully honored.
