@@ -1467,3 +1467,66 @@ None.
 ### Incidents
 
 None.
+
+---
+
+### 2026-06-17
+
+### Capability
+
+Railway Hosting Readiness Recon + Audit (`railway-hosting-readiness-recon`) — STRICT RECON ONLY. No deployment, no Railway mutation, no app-code/DB/package/.env/config change.
+
+### Phase
+
+recon-audit (recon-only; no spec/task graph, consistent with the `phase-3-recon-dag-map` precedent)
+
+### Branch
+
+main
+
+### Files Read
+
+app/server.js, app/db.js, app/package.json, app/package-lock.json, app/.env.example, app/.gitignore, app/README.md, package.json (root, untracked), .gitignore, ai/state_registry.json, .engineering-os/adapter.config.sh, scripts/invariant-check.sh, .engineering-os/invariants/INV-003-*.sh, INV-006-*.sh. (ai/recon/azure-migration-recon.md inspected and disregarded — describes a different app.)
+
+### Commands Run
+
+git status/log/branch; find; node --version (v25.4.0); npm --version (11.7.0); node -e require('node:sqlite') (loads w/ ExperimentalWarning); node --check on server.js/db.js/public/app.js (OK); cd app && npm run; git ls-files (root package.json UNTRACKED; app lockfile tracked); os-adapter-check.sh (12/12 PASS); invariant-check.sh (5/5 PASS); grep PORT/listen/NODE_ENV/SESSION_SECRET/DatabaseSync/data.db.
+
+### Recon Artifact
+
+ai/recon/railway-hosting-readiness-recon.md
+
+### Audit Report
+
+ai/reports/railway-hosting-readiness-audit.md
+
+### Railway Verdict
+
+READY WITH BLOCKERS. Demo-ready now (config only); production blocked on code work.
+
+### Blockers
+
+- B1 (config): deps/lockfile live in app/; root package.json untracked & depless → set Railway Root Directory = app.
+- B2 (config): node:sqlite throws on Node 22.5–23.3 without flag; start command unflagged → pin Node ≥23.4/24.
+- B3 (code, NOT patched): DB path hardcoded at app/db.js:8 inside source tree → volume can't mount cleanly; needs DB_PATH env.
+- B4 (code/ops, NOT patched): production seeds no users + user-create needs existing admin → no first login; needs bootstrap.
+
+### Recommended Deployment DAG
+
+R0 recon → R1 runtime/start alignment → R2 DB persistence/volume → R3 env+secret+admin bootstrap → R4 service config → R5 smoke → R6 backup/export → R7 client handoff. Demo path = R0→R1→R4→R5.
+
+### Invariant Status
+
+5/5 PASS (INV-001/003/004/005/006). Adapter-check 12/12 PASS. New artifacts under ai/recon + ai/reports are outside the sdlc/-only invariant scan, so the gate stays green.
+
+### Unresolved Risks
+
+node:sqlite is experimental (pin Node); SQLite single-writer (no horizontal scale); no automated backup; no dedicated healthcheck; demo mode exposes seeded creds.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
