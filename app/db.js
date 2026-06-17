@@ -120,6 +120,32 @@ if (process.env.NODE_ENV !== 'production' && db.prepare('SELECT COUNT(*) c FROM 
   ins.run('admin', bcrypt.hashSync('admin123', 10));
   ins.run('vasu',  bcrypt.hashSync('vasu123', 10));
 }
+// Bootstrap a first admin from env on initial production boot. No-op if admin exists.
+// Fails closed if exactly one bootstrap var is set (partial config unsafe in production).
+if (process.env.NODE_ENV === 'production') {
+  const _bUser = process.env.BOOTSTRAP_ADMIN_USERNAME;
+  const _bPass = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const _hasUser = Boolean(_bUser && _bUser.trim());
+  const _hasPass = Boolean(_bPass && _bPass.trim());
+  if (_hasUser !== _hasPass) {
+    console.error('FATAL: BOOTSTRAP_ADMIN_USERNAME and BOOTSTRAP_ADMIN_PASSWORD must both be set or both be unset.');
+    process.exit(1);
+  }
+  if (_hasUser && _hasPass) {
+    if (_bPass.trim().length < 12) {
+      console.error('FATAL: BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters.');
+      process.exit(1);
+    }
+    const _adminCount = db.prepare("SELECT COUNT(*) c FROM users WHERE role = 'admin'").get().c;
+    if (_adminCount === 0) {
+      db.prepare("INSERT INTO users (username, password_hash, role, track_scope) VALUES (?, ?, 'admin', '[]')")
+        .run(_bUser.trim(), bcrypt.hashSync(_bPass.trim(), 10));
+      console.log(`Bootstrap: admin user '${_bUser.trim()}' created.`);
+    } else {
+      console.log('Bootstrap: admin already exists, skipping.');
+    }
+  }
+}
 if (process.env.NODE_ENV === 'production' && db.prepare('SELECT COUNT(*) c FROM users').get().c === 0) {
   console.warn('WARNING: No users exist in the database. See README for production setup instructions.');
 }

@@ -29,10 +29,7 @@ Deploy as a single Railway web service (Railway source deploy, no Docker):
 | Port | Railway injects `PORT`; the app honors it (defaults to 3000) |
 
 R1 covers runtime/start alignment only. R2 (below) adds persistent volume support.
-Before a **production** deploy, one more follow-up is still required:
-
-- **R3 — env + first admin:** set `SESSION_SECRET` (32+ chars) and
-  `NODE_ENV=production`, and seed the first admin user (production seeds none).
+R3 (below) adds the first-admin bootstrap and finalizes the production env contract.
 
 For a throwaway **demo**, deploy with the R1 settings above and `NODE_ENV` unset
 (seeds `admin/admin123`); data resets on each redeploy.
@@ -53,7 +50,37 @@ and set `DB_PATH=/data/data.db`.
 If `DB_PATH` is not set, the app falls back to `app/data.db` (local development default,
 unchanged). The parent directory is created automatically on first boot.
 
-R3 (first-admin bootstrap + env contract) is still required before production use.
+## Railway Deployment (R3)
+
+Adds env-driven first-admin bootstrap so production does not require manual SQLite surgery.
+
+### Production env contract
+
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `NODE_ENV` | `production` | Controls demo seed, cookie security, SESSION_SECRET guard |
+| `SESSION_SECRET` | 32+ char random string | Boot refuses if absent or short |
+| `DB_PATH` | `/data/data.db` | Railway volume-backed SQLite (from R2) |
+| `PORT` | (injected by Railway) | Defaults to 3000 |
+
+### First-admin bootstrap (first boot only)
+
+Set these on first boot, then **remove `BOOTSTRAP_ADMIN_PASSWORD`** from Railway env vars
+after the admin is created:
+
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `BOOTSTRAP_ADMIN_USERNAME` | e.g. `admin` | Desired admin username |
+| `BOOTSTRAP_ADMIN_PASSWORD` | 12+ char strong password | Bcrypt-hashed; never logged |
+
+**Bootstrap behavior:**
+- Only runs when `NODE_ENV=production`.
+- Only runs if both vars are set; if only one is set, boot refuses (fail-closed).
+- Creates admin only if no admin user exists — idempotent, no duplicates on restart.
+- After first successful boot, the admin can create additional users via the Users panel.
+- Remove `BOOTSTRAP_ADMIN_PASSWORD` from Railway env vars after the first admin is created.
+
+**Production boots without bootstrap vars** proceed normally if an admin already exists.
 
 ## Dev Login Credentials
 
@@ -228,6 +255,8 @@ These values are defined in `db.js` as `TRACKS`, exposed via `GET /api/schema` a
 | `NODE_ENV` | Yes (set to `production`) | Controls demo seed, cookie security, and startup checks. |
 | `PORT` | No | Server port. Defaults to 3000. |
 | `DB_PATH` | Yes (for durable data) | Absolute path to SQLite file. Set to `/data/data.db` when using Railway volume. Defaults to `app/data.db` if unset. |
+| `BOOTSTRAP_ADMIN_USERNAME` | First boot only | Admin username to create on first production boot. Must pair with `BOOTSTRAP_ADMIN_PASSWORD`. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | First boot only | Admin password (min 12 chars). Stored as bcrypt hash. Remove from env after admin is created. |
 
 Generate a secret:
 

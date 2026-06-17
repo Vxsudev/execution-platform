@@ -1668,3 +1668,103 @@ R3 — env/session/first-admin bootstrap (Railway Readiness Blocker B4).
 ### Execution Model Note
 
 In-session worker (same as R1). `ai/coding-patterns.md` and `ai/runtime-contracts.md` are absent from this repo; the supervisor's nested `claude --dangerously-skip-permissions` worker path was not taken. Execution performed in-session with full context. The supervisor still enforced the invariant gate, traversed the state machine, and wrote the canonical journal entry — governance intent fully honored.
+
+---
+
+### 2026-06-17
+
+### Feature
+
+railway-r3-env-session-admin-bootstrap
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/railway-r3-env-session-admin-bootstrap.md
+
+### Tasks
+
+
+- tasks/railway-r3-env-session-admin-bootstrap-001.md [backend]
+- tasks/railway-r3-env-session-admin-bootstrap-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-17T10:44:18Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## R3 Addendum — Env / Session / First-Admin Bootstrap
+
+**Capability:** R3 — Env-driven first-admin bootstrap for Railway production
+**Branch:** main
+**Blocker addressed:** B4 (first-admin bootstrap deadlock)
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/db.js` | Added ~22-line bootstrap block: production-only, env-driven, fail-closed on partial config or short password, bcrypt hash, idempotent (no-op if admin exists), never logs password |
+| `app/.env.example` | Added `BOOTSTRAP_ADMIN_USERNAME` and `BOOTSTRAP_ADMIN_PASSWORD` as commented optional variables with removal reminder |
+| `app/README.md` | Updated R3 caveat in R2 section to "addressed"; added "Railway Deployment (R3)" section with full production env contract and bootstrap workflow; updated Production Environment Variables table |
+
+### Bootstrap Design
+
+- **Location:** `app/db.js` — runs synchronously at module load before Express listens, consistent with existing seed pattern
+- **Trigger:** `NODE_ENV=production` AND both `BOOTSTRAP_ADMIN_USERNAME` + `BOOTSTRAP_ADMIN_PASSWORD` set
+- **Idempotency:** `WHERE role='admin'` count check before INSERT — second boot skips, no duplicate
+- **Fail-closed cases:** partial config (one var only) → `process.exit(1)` FATAL; password < 12 chars → `process.exit(1)` FATAL
+- **Security:** bcrypt hash at cost 10; username logged on creation; password never logged; no HTTP endpoint
+- **Session/cookie guard:** `app/server.js:45-54` already correct; no changes needed
+
+### Production Env Contract (complete)
+
+| Variable | Required | Value |
+|----------|----------|-------|
+| `NODE_ENV` | Yes | `production` |
+| `SESSION_SECRET` | Yes | 32+ char random string |
+| `DB_PATH` | Yes (durable) | `/data/data.db` (Railway volume from R2) |
+| `PORT` | No | Railway-injected; defaults 3000 |
+| `BOOTSTRAP_ADMIN_USERNAME` | First boot only | Desired admin username |
+| `BOOTSTRAP_ADMIN_PASSWORD` | First boot only | ≥ 12 chars; remove after first admin created |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| `node --check` db.js / server.js / public/app.js | PASS |
+| Dev boot smoke (NODE_ENV unset, PORT 3987) | PASS — running line, `app/data.db` 90112 bytes unchanged |
+| Prod no SESSION_SECRET → exit 1 | PASS — FATAL printed |
+| Prod short SESSION_SECRET → exit 1 | PASS — FATAL printed |
+| Prod bootstrap: admin created in temp DB | PASS — "Bootstrap: admin user 'testadmin' created.", running line, exit 143 |
+| Temp DB: 1 user, role=admin, hash `$2a$10$...` | PASS |
+| Idempotent second boot → "already exists, skipping", 1 user | PASS |
+| Partial config (USERNAME only) → exit 1 | PASS — FATAL printed |
+| Prod no bootstrap vars + existing admin → running line | PASS |
+| Invariants 5/5 PASS (pre-exec + pre-verify gates) | PASS |
+| `app/server.js`, `app/public/*`, `app/package.json`, `app/package-lock.json` unchanged | CONFIRMED |
+
+### Unresolved Blockers
+
+- **R4 — Railway service config:** finalize builder settings, optional healthcheck route, public domain confirmation
+- **R5 — Deployment smoke:** full critical-path test on Railway after R4
+
+### Next DAG Node
+
+R4 — Railway service config.
+
+### Execution Model Note
+
+In-session worker (same as R1, R2). `ai/coding-patterns.md` and `ai/runtime-contracts.md` are absent; supervisor's nested worker path not taken. Governance intent fully honored — invariant gates enforced, state machine traversed, canonical journal entry written by supervisor.

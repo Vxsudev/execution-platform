@@ -110,5 +110,9 @@
   "railway-r2-db-path-volume-contract": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-17T08:39:27Z"
+  },
+  "railway-r3-env-session-admin-bootstrap": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-17T10:44:18Z"
   }
 }
