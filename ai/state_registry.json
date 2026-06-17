@@ -106,5 +106,9 @@
   "railway-r1-runtime-start-alignment": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-17T08:11:37Z"
+  },
+  "railway-r2-db-path-volume-contract": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-17T08:39:27Z"
   }
 }

@@ -28,17 +28,32 @@ Deploy as a single Railway web service (Railway source deploy, no Docker):
 | Node version | 24 (pinned via `app/.nvmrc`; `engines.node` is `>=24`) |
 | Port | Railway injects `PORT`; the app honors it (defaults to 3000) |
 
-R1 covers runtime/start alignment only. Before a **production** deploy, two
-follow-ups are still required:
+R1 covers runtime/start alignment only. R2 (below) adds persistent volume support.
+Before a **production** deploy, one more follow-up is still required:
 
-- **R2 — data persistence:** the SQLite file is hardcoded inside the app
-  directory, so data is ephemeral on Railway. A configurable DB path + a Railway
-  persistent volume are needed for durable data.
 - **R3 — env + first admin:** set `SESSION_SECRET` (32+ chars) and
   `NODE_ENV=production`, and seed the first admin user (production seeds none).
 
-For a throwaway **demo**, deploy with the settings above and `NODE_ENV` unset
+For a throwaway **demo**, deploy with the R1 settings above and `NODE_ENV` unset
 (seeds `admin/admin123`); data resets on each redeploy.
+
+## Railway Deployment (R2)
+
+Adds durable SQLite storage via a Railway persistent volume. Mount the volume at `/data`
+and set `DB_PATH=/data/data.db`.
+
+| Setting | Value |
+|---------|-------|
+| Persistent volume mount | `/data` |
+| `DB_PATH` env var | `/data/data.db` |
+| WAL sidecars | `/data/data.db-wal`, `/data/data.db-shm` (colocated automatically) |
+| Root Directory | `app` (unchanged from R1) |
+| Node version | 24 (unchanged from R1) |
+
+If `DB_PATH` is not set, the app falls back to `app/data.db` (local development default,
+unchanged). The parent directory is created automatically on first boot.
+
+R3 (first-admin bootstrap + env contract) is still required before production use.
 
 ## Dev Login Credentials
 
@@ -212,6 +227,7 @@ These values are defined in `db.js` as `TRACKS`, exposed via `GET /api/schema` a
 | `SESSION_SECRET` | **Yes** | Cryptographic signing key for session tokens. Min 32 chars. Boot fails if absent. |
 | `NODE_ENV` | Yes (set to `production`) | Controls demo seed, cookie security, and startup checks. |
 | `PORT` | No | Server port. Defaults to 3000. |
+| `DB_PATH` | Yes (for durable data) | Absolute path to SQLite file. Set to `/data/data.db` when using Railway volume. Defaults to `app/data.db` if unset. |
 
 Generate a secret:
 

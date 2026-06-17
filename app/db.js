@@ -1,11 +1,17 @@
 // Database setup, schema, and seed.
 // The Excel sheet is used ONLY as the source of column/row structure here.
 // Runtime data lives in this SQLite database, never in the spreadsheet.
+const fs = require('fs');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 const bcrypt = require('bcryptjs');
 
-const db = new DatabaseSync(path.join(__dirname, 'data.db'));
+const defaultDbPath = path.join(__dirname, 'data.db');
+const configuredDbPath = process.env.DB_PATH && process.env.DB_PATH.trim()
+  ? process.env.DB_PATH.trim()
+  : defaultDbPath;
+fs.mkdirSync(path.dirname(configuredDbPath), { recursive: true });
+const db = new DatabaseSync(configuredDbPath);
 try {
   db.exec("PRAGMA journal_mode = WAL;");
 } catch (err) {

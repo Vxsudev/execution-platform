@@ -1578,3 +1578,93 @@ None.
 ### Incidents
 
 None.
+
+---
+
+### 2026-06-17
+
+### Feature
+
+railway-r2-db-path-volume-contract
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/railway-r2-db-path-volume-contract.md
+
+### Tasks
+
+
+- tasks/railway-r2-db-path-volume-contract-001.md [backend]
+- tasks/railway-r2-db-path-volume-contract-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-17T08:39:27Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## R2 Addendum — Railway DB_PATH + Volume Contract
+
+**Capability:** R2 — Configurable SQLite DB path for Railway persistent volume durability
+**Branch:** main
+**Blocker addressed:** B3 (hardcoded DB path)
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/db.js` | Added `const fs = require('fs')`; replaced hardcoded `new DatabaseSync(path.join(__dirname, 'data.db'))` with DB_PATH resolution + `mkdirSync` + `new DatabaseSync(configuredDbPath)` |
+| `app/.env.example` | Added `# DB_PATH=/data/data.db` commented optional variable |
+| `app/README.md` | Updated R1 section caveat note; added "Railway Deployment (R2)" section (volume mount `/data`, env var `DB_PATH=/data/data.db`, WAL colocated); added `DB_PATH` row to Production Environment Variables table |
+
+### DB_PATH Behavior
+
+- `DB_PATH` unset or empty → `configuredDbPath = path.join(__dirname, 'data.db')` → local `app/data.db` (unchanged default)
+- `DB_PATH=/data/data.db` → opens at `/data/data.db`; `fs.mkdirSync('/data', { recursive: true })` ensures the Railway volume mount point exists before `DatabaseSync` is called
+- All subsequent code (WAL, migrations, seeds, `module.exports`) references the `db` handle → no other changes needed
+
+### Railway Volume Contract
+
+- Volume mount path: `/data`
+- `DB_PATH` env var: `/data/data.db`
+- WAL sidecars (`data.db-wal`, `data.db-shm`) colocated at `/data/` automatically by SQLite
+- `NODE_ENV=production` and `SESSION_SECRET` still required (R3)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| `node --check app/db.js` | PASS |
+| `node --check app/server.js` | PASS |
+| `node --check app/public/app.js` | PASS |
+| `npm run` (start = `node server.js`) | PASS |
+| Default boot smoke (DB_PATH unset, PORT 3987) | PASS — running line, exit 143, `app/data.db` 90112 bytes unchanged |
+| DB_PATH boot smoke (temp dir, PORT 3991) | PASS — running line, exit 143, file created at temp path, cleanup OK |
+| Invariants 5/5 PASS (pre-exec + pre-verify gates) | PASS |
+| `app/server.js`, `app/public/*`, `app/package.json`, `app/package-lock.json` unchanged | CONFIRMED |
+
+### Unresolved Blockers
+
+- **B4 — first-admin bootstrap:** production boots with zero users; creating the first admin requires a bootstrapping mechanism. This is the R3 responsibility.
+- **R3 — env/session/first-admin bootstrap:** `SESSION_SECRET`, `NODE_ENV=production`, and first-admin seeding must be documented and implemented before production use.
+
+### Next DAG Node
+
+R3 — env/session/first-admin bootstrap (Railway Readiness Blocker B4).
+
+### Execution Model Note
+
+In-session worker (same as R1). `ai/coding-patterns.md` and `ai/runtime-contracts.md` are absent from this repo; the supervisor's nested `claude --dangerously-skip-permissions` worker path was not taken. Execution performed in-session with full context. The supervisor still enforced the invariant gate, traversed the state machine, and wrote the canonical journal entry — governance intent fully honored.
