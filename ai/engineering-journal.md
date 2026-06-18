@@ -2621,3 +2621,38 @@ Railway redeploy smoke — confirm clicked-cell field highlight on the live depl
 In-session worker. Backend task (001) was a confirmation no-op (cell→field mapping is
 client-derivable from the existing schema). Supervisor enforced invariant gates and wrote the
 canonical journal entry.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+guard-demo-entries-seed-production
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/guard-demo-entries-seed-production.md
+
+### Tasks
+
+
+- tasks/guard-demo-entries-seed-production-001.md [backend]
+- tasks/guard-demo-entries-seed-production-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T12:25:07Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.

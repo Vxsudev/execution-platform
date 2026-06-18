@@ -160,7 +160,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Seed generic illustrative rows to show row shape (not production data).
-if (db.prepare('SELECT COUNT(*) c FROM entries').get().c === 0) {
+if (process.env.NODE_ENV !== 'production' && db.prepare('SELECT COUNT(*) c FROM entries').get().c === 0) {
   const ins = db.prepare(`INSERT INTO entries
     (type,title,owner,track,function_area,hypothesis,success_criteria,status)
     VALUES (@type,@title,@owner,@track,@function_area,@hypothesis,@success_criteria,@status)`);

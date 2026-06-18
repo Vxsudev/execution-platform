@@ -146,5 +146,9 @@
   "clicked-cell-field-highlight": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-18T07:22:15Z"
+  },
+  "guard-demo-entries-seed-production": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-18T12:25:07Z"
   }
 }
