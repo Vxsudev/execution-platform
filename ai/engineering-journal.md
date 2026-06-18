@@ -2083,3 +2083,124 @@ Railway redeploy smoke — confirm click-to-edit and modal layering on the live 
 
 In-session worker (as in prior capabilities). Supervisor enforced invariant gates, traversed
 the state machine, and wrote the canonical journal entry. Governance intent fully honored.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+import-batch-delete-integrity-fix
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/import-batch-delete-integrity-fix.md
+
+### Tasks
+
+
+- tasks/import-batch-delete-integrity-fix-001.md [backend]
+- tasks/import-batch-delete-integrity-fix-002.md [frontend]
+- tasks/import-batch-delete-integrity-fix-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T06:16:34Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Import Batch Delete Integrity Fix
+
+**Capability:** Evidence-based legacy orphan recovery in import batch delete
+**Branch:** main
+
+### Observed Bug
+
+Import History showed a 19-row batch; Delete reported "Deleted 0 imported row(s), 20
+observation(s) removed" and the rows stayed visible.
+
+### Root Cause (recon, proven on disposable DBs)
+
+The current import/delete code is **correct** — verified by reproducing import→delete with the
+real astraX workbook: 19 entries linked to `import_batch_id`, delete removed 19 entries + 20
+observations + ledger. The reported failure is **legacy data**: the user's 19 entries were
+imported by an older code version that recorded batch-linked `imported_entry` observations but
+did **not** stamp `import_batch_id` on the entries, so `DELETE FROM entries WHERE
+import_batch_id = N` matched 0 rows while the 20 batch-linked observations were removed. The
+committed `app/data.db` likewise has 0 batches and 65 entries all with `import_batch_id = NULL`.
+Per the recon STOP-and-report gate, the operator authorized **Option A — observation-driven
+delete**.
+
+### Fix (Option A — batch-scoped, evidence-based)
+
+`DELETE /api/imports/:id` (`app/server.js`) now, inside its transaction: collects `entry_id`
+values from *this batch's* `imported_entry` observations (`raw_data.entry_id`), deletes entries
+with `import_batch_id = :id`, then also deletes entries whose id is in the collected set
+(legacy orphans), then deletes the batch's observations and ledger row. `deleted_entry_count`
+is the accurate total (linked + legacy); `deleted_legacy_count` added for transparency. No
+heuristic matching, no global orphan sweep, no backfill. Manual rows (never named in any
+observation, no `import_batch_id`) are never touched.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/server.js` | Evidence-based legacy recovery in `DELETE /api/imports/:id` |
+
+No frontend change: `app/public/app.js` already displays `deleted_entry_count` +
+`deleted_observation_count`, which remain accurate.
+
+### Import Batch Linkage / Delete Behavior
+
+- New imports stamp `import_batch_id` on every inserted entry (unchanged, already correct).
+- Delete removes: linked entries, evidence-named legacy orphan entries, observations, ledger row.
+- Manual rows and other batches untouched; current imports not double-counted (`deleted_legacy_count=0`).
+
+### Verification Results (disposable DBs; live `app/data.db` untouched)
+
+| Check | Result |
+|-------|--------|
+| `node --check` server.js / db.js / public/app.js | PASS |
+| Dev boot smoke (NODE_ENV unset) | PASS — live `app/data.db` byte-for-byte unchanged |
+| Legacy case: 3 orphaned rows (NULL batch) named by observations deleted (`deleted_legacy_count=3`); manual row preserved; ledger gone | PASS |
+| Current case: 2 linked rows + observations + ledger deleted; `deleted_legacy_count=0`; manual row preserved | PASS |
+| Unauthenticated DELETE → 401; non-admin (viewer) DELETE → 403 | PASS |
+| Invariants 5/5 (pre-exec + pre-verify) | PASS |
+| Diff = `app/server.js` only; no forbidden surfaces | CONFIRMED |
+
+Verification harness total: **13/13 assertions passed**.
+
+### Preserved (unchanged)
+
+Import preview/commit/duplicate detection; access-control removal; row-click edit; auth/session;
+DB_PATH; first-admin bootstrap; Railway config; schema. No Docker/Postgres/deploy.
+
+### Unresolved Risks
+
+- Legacy batches whose `imported_entry` observations lack `entry_id` in `raw_data` cannot be
+  recovered by this path (evidence-only by design); those would need explicit operator-authorized
+  handling. Batches imported by current code are unaffected.
+
+### Next Recommended Node
+
+Railway redeploy smoke — redeploy and confirm batch delete (including legacy batches) removes
+imported rows on the live deployment.
+
+### Execution Model Note
+
+In-session worker (as in prior capabilities). Recon hit the directive's STOP-and-report gate
+(legacy vs current bug); operator authorized Option A; pipeline then ran to RELEASE_APPROVED.
+Supervisor enforced invariant gates and wrote the canonical journal entry.

@@ -126,5 +126,9 @@
   "row-click-edit-ui-simplification": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-18T05:57:25Z"
+  },
+  "import-batch-delete-integrity-fix": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-18T06:16:34Z"
   }
 }

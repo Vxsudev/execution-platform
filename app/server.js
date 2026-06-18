@@ -581,11 +581,38 @@ app.delete('/api/imports/:id', requireAuth, (req, res) => {
   if (!existing) return res.status(404).json({ error: 'import batch not found' });
   db.exec('BEGIN');
   try {
+    // Evidence-based legacy recovery: entries created by this batch under an older code
+    // version were not stamped with import_batch_id, but this batch's imported_entry
+    // observations recorded their entry_id in raw_data. Collect those ids (before deleting
+    // the observations) so the batch delete removes them too. Batch-scoped and evidence-based
+    // only — no heuristic matching and no global orphan sweep, so manual rows (never named in
+    // any observation) are never touched.
+    const legacyIds = [];
+    for (const o of db.prepare(
+      "SELECT raw_data FROM import_observations WHERE import_batch_id = ? AND observation_type = 'imported_entry'"
+    ).all(id)) {
+      if (!o.raw_data) continue;
+      let parsed; try { parsed = JSON.parse(o.raw_data); } catch (_) { continue; }
+      const eid = parsed && parsed.entry_id;
+      if (Number.isInteger(eid) && eid > 0) legacyIds.push(eid);
+    }
+
     const deleted_observation_count = db.prepare('DELETE FROM import_observations WHERE import_batch_id = ?').run(id).changes;
-    const deleted_entry_count = db.prepare('DELETE FROM entries WHERE import_batch_id = ?').run(id).changes;
+    let deleted_entry_count = db.prepare('DELETE FROM entries WHERE import_batch_id = ?').run(id).changes;
+
+    // Remove any entries this batch's observations name that weren't already deleted above
+    // (legacy orphans whose import_batch_id was NULL). Current imports' rows were removed by
+    // the import_batch_id delete, so they are not double-counted here.
+    let deleted_legacy_count = 0;
+    if (legacyIds.length) {
+      const placeholders = legacyIds.map(() => '?').join(',');
+      deleted_legacy_count = db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).run(...legacyIds).changes;
+      deleted_entry_count += deleted_legacy_count;
+    }
+
     db.prepare('DELETE FROM imports WHERE id = ?').run(id);
     db.exec('COMMIT');
-    res.json({ ok: true, deleted_observation_count, deleted_entry_count, deleted_import_id: id });
+    res.json({ ok: true, deleted_observation_count, deleted_entry_count, deleted_legacy_count, deleted_import_id: id });
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch (_) {}
     res.status(500).json({ error: 'delete failed: ' + (e && e.message ? e.message : 'unknown error') });
