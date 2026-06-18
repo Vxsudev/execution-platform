@@ -10,6 +10,10 @@ const defaultDbPath = path.join(__dirname, 'data.db');
 const configuredDbPath = process.env.DB_PATH && process.env.DB_PATH.trim()
   ? process.env.DB_PATH.trim()
   : defaultDbPath;
+console.log('[db] resolved db path:', configuredDbPath);
+console.log('[db] DB_PATH env var:', process.env.DB_PATH && process.env.DB_PATH.trim() ? 'present' : 'not set');
+console.log('[db] parent dir exists:', fs.existsSync(path.dirname(configuredDbPath)));
+
 fs.mkdirSync(path.dirname(configuredDbPath), { recursive: true });
 const db = new DatabaseSync(configuredDbPath);
 try {
@@ -170,5 +174,7 @@ if (db.prepare('SELECT COUNT(*) c FROM entries').get().c === 0) {
 // Backfill audit columns for any rows without stamps (including seed rows on fresh installs).
 db.exec("UPDATE entries SET created_by = 'system' WHERE created_by IS NULL;");
 db.exec("UPDATE entries SET updated_by = 'system' WHERE updated_by IS NULL;");
+
+console.log('[db] admin count at startup:', db.prepare("SELECT COUNT(*) c FROM users WHERE role = 'admin'").get().c);
 
 module.exports = { db, ROW_FIELDS, ROW_TYPES, STATUSES, TRACKS };
