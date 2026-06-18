@@ -2307,3 +2307,123 @@ Railway redeploy smoke — confirm bootstrap accepts the operator's chosen passw
 
 In-session worker (as in prior capabilities). Supervisor enforced invariant gates, traversed the
 state machine, and wrote the canonical journal entry. Governance intent fully honored.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+sheet2-inclusive-import-capture
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/sheet2-inclusive-import-capture.md
+
+### Tasks
+
+
+- tasks/sheet2-inclusive-import-capture-001.md [backend]
+- tasks/sheet2-inclusive-import-capture-002.md [frontend]
+- tasks/sheet2-inclusive-import-capture-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T06:53:02Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Sheet 2 Inclusive Import Capture
+
+**Capability:** Make `All Experiment Summary` import include every non-empty item row
+**Branch:** main
+
+### Operator Requirement
+
+For Sheet 2, the system must not omit rows due to blank owner/track/status or non-canonical
+track; all Sheet 2 items must be included; warnings stay informational, never blocking.
+
+### Recon Finding (operator-provided current workbook)
+
+Blank owner/track/status and non-canonical tracks were **already** warnings, not skips. The one
+real omission was **blank-title rows that still carry item data**, skipped as `"title is
+required"`. The operator's current workbook
+(`~/Downloads/astraX_JuneToNov_Experiment_All_Tracking (1).xlsx`) Sheet 2: 63 title-bearing rows
+imported, **1** blank-title-with-data row dropped (row 54: `owner=Abhilash`, `status=Not Started`),
+11 fully-blank dropped.
+
+### Fix
+
+`app/server.js` `classifyImportRow`: a blank Experiment Title is now **defaulted to `Untitled`**
+(constant `IMPORT_UNTITLED`) with warning `'title blank; set to Untitled'`, instead of marking the
+row unimportable. `parseImportWorkbook` still drops fully-blank rows *before* classification, so
+no empty row is ever imported, and the side `STATUS SUMMARY` panel (unmapped columns) is still
+ignored. No schema change (`entries.title` NOT NULL satisfied by the non-empty default).
+
+### Sheet 2 Inclusion / Warning / Skip Behavior (after change)
+
+- Every row with any mapped data imports; blank title→`Untitled`, owner→`Unassigned`,
+  track→`Unassigned Track`, status→`Not Started`; non-canonical track stored as-is — all with
+  informational warnings, none blocking.
+- Only fully-blank mapped rows (and the unmapped side panel) are excluded.
+- Preview and commit use the same `classifyImportRow` → identical row sets.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/server.js` | `IMPORT_UNTITLED` constant; blank-title default in `classifyImportRow`; refreshed comment |
+
+No frontend change: preview already renders `importable_rows` + per-row warnings; the new warning
+shows identically.
+
+### Verification Results (disposable DBs; live `app/data.db` untouched)
+
+| Check | Result |
+|-------|--------|
+| `node --check` server.js / db.js / public/app.js; dev boot smoke | PASS — live `app/data.db` unchanged |
+| Current workbook preview: importable **64** (was 63); 0 non-empty skipped | PASS |
+| Blank-title row imports as `Untitled`, owner `Abhilash`, with title-blank warning | PASS |
+| Commit inserted **64** (preview == commit); observations 65 | PASS |
+| Temp DB: `Untitled`/`Abhilash`/`import_source_row=54` present | PASS |
+| Blank owner→Unassigned still applies; fully-blank rows still excluded | PASS |
+| Batch delete removed all 64 imported rows; manual row preserved | PASS |
+| Invariants 5/5 (pre-exec + pre-verify); diff = `app/server.js` only | PASS |
+
+Consolidated harness total: **8/8** (plus the earlier preview/commit run).
+
+### Preserved (unchanged)
+
+Sheet 1 / Sheet 3, duplicate detection, observation capture, batch delete integrity, access-control
+removal, row-click edit, DB_PATH, bootstrap, auth/session, Railway config, schema. No
+Docker/Postgres/deploy.
+
+### Unresolved Risks
+
+- A non-item notes row with text in a mapped column but no title would import as `Untitled`. This
+  matches the operator's "include all non-empty Sheet 2 rows" intent; fully-blank rows and the
+  unmapped side panel remain excluded.
+
+### Next Recommended Node
+
+Railway redeploy smoke — confirm inclusive Sheet 2 import on the live deployment.
+
+### Execution Model Note
+
+In-session worker. Recon initially found the premise unmatched (source workbook had 0 such rows);
+the operator supplied the current workbook, which exposed the real dropped row (54), so the fix was
+implemented and verified against that exact file. Supervisor enforced invariant gates and wrote the
+canonical journal entry.

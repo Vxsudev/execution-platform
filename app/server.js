@@ -312,10 +312,12 @@ const IMPORT_HEADER_MAP = {
   'Status': 'status',
 };
 
-// Open-mode (capture-first) defaults. title is the only hard requirement.
+// Open-mode (capture-first) defaults. Every non-empty Sheet 2 row imports; blank fields are
+// defaulted, never skipped (fully-blank rows are dropped by parseImportWorkbook).
 const IMPORT_UNASSIGNED_OWNER = 'Unassigned';
 const IMPORT_UNASSIGNED_TRACK = 'Unassigned Track';
 const IMPORT_DEFAULT_STATUS = 'Not Started';
+const IMPORT_UNTITLED = 'Untitled';
 
 function resolveImportSheet(wb) {
   if (wb.SheetNames.includes(IMPORT_SHEET)) return IMPORT_SHEET;
@@ -368,8 +370,9 @@ function parseImportWorkbook(buffer) {
   return { sheet, rows };
 }
 
-// Open-mode classification (capture-first). A row is unimportable ONLY if title is blank.
-// owner/track/status are defaulted and/or warned, never blocking:
+// Open-mode classification (capture-first). Every row reaching this point has real data
+// (parseImportWorkbook drops fully-blank rows), so all are importable; blank title/owner/track/
+// status are defaulted and/or warned, never blocking:
 //   - blank owner  → "Unassigned"          (warn)
 //   - blank track  → "Unassigned Track"     (warn);  non-canonical track imports AS-IS (warn) — track is free TEXT
 //   - blank status → "Not Started"          (warn);  non-canonical status COERCED to "Not Started" (warn)
@@ -378,13 +381,16 @@ function parseImportWorkbook(buffer) {
 function classifyImportRow(data) {
   const d = data && typeof data === 'object' ? (data.data && typeof data.data === 'object' ? data.data : data) : {};
   const title = d.title == null ? '' : String(d.title).trim();
-  if (!title) return { importable: false, reason: 'title is required' };
   const out = {};
   for (const k of FIELD_KEYS) {
     if (d[k] !== undefined && d[k] !== null) out[k] = String(d[k]).trim();
   }
-  out.title = title;
   const warnings = [];
+  // Inclusive capture: a blank Experiment Title is defaulted (like owner/track/status) rather
+  // than skipped, so every non-empty Sheet 2 row imports. Fully-blank rows are dropped earlier
+  // by parseImportWorkbook, so this never imports an empty row.
+  if (title) { out.title = title; }
+  else { out.title = IMPORT_UNTITLED; warnings.push('title blank; set to Untitled'); }
   if (!out.owner) { out.owner = IMPORT_UNASSIGNED_OWNER; warnings.push('owner blank; set to Unassigned'); }
   if (!out.track) { out.track = IMPORT_UNASSIGNED_TRACK; warnings.push('track blank; set to Unassigned Track'); }
   else if (!TRACKS.includes(out.track)) { warnings.push(`non-canonical track "${out.track}" imported as-is`); }
