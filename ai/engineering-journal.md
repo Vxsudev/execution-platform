@@ -2204,3 +2204,106 @@ imported rows on the live deployment.
 In-session worker (as in prior capabilities). Recon hit the directive's STOP-and-report gate
 (legacy vs current bug); operator authorized Option A; pipeline then ran to RELEASE_APPROVED.
 Supervisor enforced invariant gates and wrote the canonical journal entry.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+remove-password-length-restrictions
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/remove-password-length-restrictions.md
+
+### Tasks
+
+
+- tasks/remove-password-length-restrictions-001.md [backend]
+- tasks/remove-password-length-restrictions-002.md [frontend]
+- tasks/remove-password-length-restrictions-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T06:28:24Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Remove Password Length Restrictions
+
+**Capability:** Remove application-level password length restrictions
+**Branch:** main
+
+### Requirement Change (2026-06-18)
+
+No minimum password length for user passwords or `BOOTSTRAP_ADMIN_PASSWORD`. Authentication,
+bcrypt hashing, sessions, bootstrap flow, and the production `SESSION_SECRET` guard remain intact.
+
+### Password Restrictions Removed
+
+- `app/db.js` bootstrap: removed the `BOOTSTRAP_ADMIN_PASSWORD` 12-character minimum
+  (`_bPass.trim().length < 12` → FATAL). It was the **only** application-level password length
+  rule. User-creation passwords (`app/server.js`) already had no length rule (presence-only).
+- Doc sync (obsolete "12-char" wording): `app/.env.example`, `app/README.md` (×2),
+  `docs/railway-service-config.md`.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/db.js` | Removed bootstrap 12-char minimum; kept presence + partial-config fail-closed + bcrypt |
+| `app/.env.example` | Neutral bootstrap-password placeholder (no minimum) |
+| `app/README.md` | Dropped "12+ char" / "(min 12 chars)" from two bootstrap-password rows |
+| `docs/railway-service-config.md` | Dropped "12+ char" from the bootstrap-password row |
+
+No `app/server.js` change (SESSION_SECRET guard preserved); no `app/public/*` change (no frontend
+password length rule existed); no schema change.
+
+### Preserved
+
+- bcrypt hashing (create/update/bootstrap/compare); login + password comparison
+- Missing/empty password rejection (user-create 400; bootstrap presence + partial-config FATAL)
+- Bootstrap: production-only, create-only-if-no-admin, skip-if-exists, username/password env vars
+- `SESSION_SECRET` required in production + **32-char minimum unchanged** (distinct from passwords)
+- No plaintext storage; password never logged; hashes never exposed
+
+### Verification Results (disposable DBs; live `app/data.db` untouched)
+
+| Check | Result |
+|-------|--------|
+| `node --check` server.js / db.js / public/app.js | PASS |
+| Dev boot smoke (NODE_ENV unset) | PASS — live `app/data.db` byte-for-byte unchanged |
+| Bootstrap with 2-char password → admin created; login with it → 200 | PASS |
+| User-create with 1-char password → 201; login → 200 | PASS |
+| Empty password: user-create → 400; bootstrap username-only → FATAL partial config | PASS |
+| SESSION_SECRET missing → FATAL; `<32` → FATAL (production) | PASS |
+| Stored hash is bcrypt (`$2a$`); password not logged (only username) | PASS |
+| Invariants 5/5 (pre-exec + pre-verify) | PASS |
+| Diff = db.js + .env.example + README + railway doc; server.js / public / schema untouched | CONFIRMED |
+
+### Unresolved Risks
+
+- Admin password strength is now operator-chosen (no enforced minimum) — accepted per requirement.
+
+### Next Recommended Node
+
+Railway redeploy smoke — confirm bootstrap accepts the operator's chosen password and login works.
+
+### Execution Model Note
+
+In-session worker (as in prior capabilities). Supervisor enforced invariant gates, traversed the
+state machine, and wrote the canonical journal entry. Governance intent fully honored.

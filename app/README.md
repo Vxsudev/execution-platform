@@ -71,7 +71,7 @@ after the admin is created:
 | Variable | Value | Notes |
 |----------|-------|-------|
 | `BOOTSTRAP_ADMIN_USERNAME` | e.g. `admin` | Desired admin username |
-| `BOOTSTRAP_ADMIN_PASSWORD` | 12+ char strong password | Bcrypt-hashed; never logged |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Strong password (no length minimum) | Bcrypt-hashed; never logged |
 
 **Bootstrap behavior:**
 - Only runs when `NODE_ENV=production`.
@@ -270,7 +270,7 @@ These values are defined in `db.js` as `TRACKS`, exposed via `GET /api/schema` a
 | `PORT` | No | Server port. Defaults to 3000. |
 | `DB_PATH` | Yes (for durable data) | Absolute path to SQLite file. Set to `/data/data.db` when using Railway volume. Defaults to `app/data.db` if unset. |
 | `BOOTSTRAP_ADMIN_USERNAME` | First boot only | Admin username to create on first production boot. Must pair with `BOOTSTRAP_ADMIN_PASSWORD`. |
-| `BOOTSTRAP_ADMIN_PASSWORD` | First boot only | Admin password (min 12 chars). Stored as bcrypt hash. Remove from env after admin is created. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | First boot only | Admin password (no length minimum). Stored as bcrypt hash. Remove from env after admin is created. |
 
 Generate a secret:
 

@@ -132,10 +132,9 @@ if (process.env.NODE_ENV === 'production') {
     process.exit(1);
   }
   if (_hasUser && _hasPass) {
-    if (_bPass.trim().length < 12) {
-      console.error('FATAL: BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters.');
-      process.exit(1);
-    }
+    // No password length restriction (operator requirement 2026-06-18). A non-empty
+    // BOOTSTRAP_ADMIN_PASSWORD of any length is accepted; presence + partial-config
+    // fail-closed above still apply, and the password is bcrypt-hashed below.
     const _adminCount = db.prepare("SELECT COUNT(*) c FROM users WHERE role = 'admin'").get().c;
     if (_adminCount === 0) {
       db.prepare("INSERT INTO users (username, password_hash, role, track_scope) VALUES (?, ?, 'admin', '[]')")

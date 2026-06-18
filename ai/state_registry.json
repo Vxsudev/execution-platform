@@ -130,5 +130,9 @@
   "import-batch-delete-integrity-fix": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-18T06:16:34Z"
+  },
+  "remove-password-length-restrictions": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-18T06:28:25Z"
   }
 }

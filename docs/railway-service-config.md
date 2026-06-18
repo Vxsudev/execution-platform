@@ -88,7 +88,7 @@ admin is confirmed to exist.
 | Variable | Value | Notes |
 |----------|-------|-------|
 | `BOOTSTRAP_ADMIN_USERNAME` | e.g. `admin` | Admin username; must pair with PASSWORD |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Strong 12+ char password | Bcrypt-hashed at boot; **remove after first admin created** |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Strong password (no length minimum) | Bcrypt-hashed at boot; **remove after first admin created** |
 
 ### After first successful admin creation
 
