@@ -7,8 +7,6 @@ const state = {
   allowDuplicates: false, expandedCells: new Set(),
 };
 
-let _rowClickTimer = null;
-
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
 const AUDIT_LABELS = { created_at: 'Created', updated_at: 'Updated', created_by: 'Created by', updated_by: 'Updated by' };
 
@@ -274,7 +272,6 @@ function renderTable(rows) {
     }).join('');
     return `<tr class="clickable-row" data-row-id="${r.id}" tabindex="0">${cells}<td><div class="row-actions">
       <button class="icon-btn" data-info="${r.id}">Details</button>
-      ${canEditRow(r) ? `<button class="icon-btn" data-edit="${r.id}">Edit</button>` : ''}
       ${canDeleteRow() ? `<button class="icon-btn danger" data-del="${r.id}">Delete</button>` : ''}
     </div></td></tr>`;
   }).join('');
@@ -284,8 +281,6 @@ function renderTable(rows) {
 function bindRowActions() {
   document.querySelectorAll('[data-info]').forEach((b) =>
     b.onclick = () => openDetails(state.rows.find((r) => r.id == b.dataset.info)));
-  document.querySelectorAll('[data-edit]').forEach((b) =>
-    b.onclick = () => openForm(state.rows.find((r) => r.id == b.dataset.edit)));
   document.querySelectorAll('[data-del]').forEach((b) =>
     b.onclick = async () => {
       if (!confirm('Delete this row?')) return;
@@ -304,18 +299,15 @@ function bindRowActions() {
   document.querySelectorAll('[data-row-id]').forEach((tr) => {
     const row = state.rows.find(r => r.id === Number(tr.dataset.rowId));
     if (!row) return;
+    // Any authenticated user can edit any row, so a plain row/cell click opens the edit
+    // form directly. Clicks on the action buttons / cell toggle (and other interactive
+    // controls) are ignored here so Details, Delete, and More/Less keep their own behavior.
     tr.onclick = (e) => {
       if (e.target.closest('button, a, input, select, textarea')) return;
-      clearTimeout(_rowClickTimer);
-      _rowClickTimer = setTimeout(() => openDetails(row), 200);
-    };
-    tr.ondblclick = (e) => {
-      if (e.target.closest('button, a, input, select, textarea')) return;
-      clearTimeout(_rowClickTimer);
-      if (canEditRow(row)) openForm(row);
+      openForm(row);
     };
     tr.onkeydown = (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); openDetails(row); }
+      if (e.key === 'Enter') { e.preventDefault(); openForm(row); }
     };
   });
 }

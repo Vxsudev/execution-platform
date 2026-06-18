@@ -1973,3 +1973,113 @@ Railway redeploy smoke (R5) — redeploy and re-run the critical-path smoke from
 
 In-session worker (as in R1–R4). Supervisor enforced invariant gates, traversed the state
 machine, and wrote the canonical journal entry. Governance intent fully honored.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+row-click-edit-ui-simplification
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/row-click-edit-ui-simplification.md
+
+### Tasks
+
+
+- tasks/row-click-edit-ui-simplification-001.md [frontend]
+- tasks/row-click-edit-ui-simplification-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T05:57:25Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Row Click Edit UI Simplification
+
+**Capability:** Click-to-edit table interaction; remove Edit button; fix modal layering
+**Branch:** main
+
+### Client Requirement (post live Railway smoke, 2026-06-18)
+
+Since any authenticated user can edit any row, the table interaction should be direct
+editing: clicking a row/cell opens the edit form, the explicit Edit button is removed, and a
+modal layering bug (sticky header bleeding over the modal) is fixed.
+
+### Interaction Model Changed
+
+| Before | After |
+|--------|-------|
+| Single click → 200 ms timer → Details modal | Single click (outside controls) → **edit form** |
+| Double click → edit form | (removed — single click is primary; no longer required) |
+| Enter → Details | Enter → **edit form** |
+| Edit button in row actions | **removed** |
+| Details / Delete / More-Less | **preserved** |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/public/app.js` | Removed Edit button + `data-edit` binding; row `onclick`/Enter → `openForm(row)`; removed `_rowClickTimer` + `dblclick` edit handler; Details/Delete/More-Less unchanged |
+| `app/public/style.css` | `.modal-back` → `z-index:1000` (above sticky header `z-index:2` and action buttons) |
+
+### Edit Button Removal
+
+The row-actions Edit button and its `data-edit` handler are removed; edit is reached by
+clicking the row. The separate admin **Users panel** edit control (`data-user-edit`) is out
+of scope and untouched. Edit is not replaced with another edit icon.
+
+### Modal Layering Fix
+
+`.modal-back` had no `z-index` (stacked at auto), so the sticky `<th>` (`z-index:2`) painted
+over the modal. Added `z-index:1000` so the backdrop + modal sit above the header and actions.
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| `node --check` app.js / server.js / db.js | PASS |
+| Dev boot smoke (NODE_ENV unset) | PASS — running line; live `app/data.db` 90112 bytes unchanged |
+| No `data-edit` / no row-actions Edit button | PASS |
+| Row `onclick` + Enter → `openForm` | PASS |
+| Details (`data-info`) / Delete (`data-del`, admin-only) / More-Less (`data-cell-toggle` stopPropagation) preserved | PASS |
+| `.modal-back` z-index:1000 > 2 | PASS |
+| API regression (temp DB): edit 200, create 201, unauth 401 | PASS (4/4) |
+| Invariants 5/5 (pre-exec + pre-verify) | PASS |
+| Diff = `app/public/app.js` + `app/public/style.css` only; no forbidden surfaces | CONFIRMED |
+
+### Preserved (unchanged)
+
+- Backend access control (`app/server.js` untouched — frontend call contract intact)
+- Auth/session, first-admin bootstrap, DB_PATH, Railway config, schema, imports
+- My Track vs All as view/filter only
+
+### Unresolved Risks
+
+- A misclick on a row now opens the edit form instead of Details; mitigated by the Cancel
+  button and the still-available Details button.
+
+### Next Recommended Node
+
+Railway redeploy smoke — confirm click-to-edit and modal layering on the live deployment.
+
+### Execution Model Note
+
+In-session worker (as in prior capabilities). Supervisor enforced invariant gates, traversed
+the state machine, and wrote the canonical journal entry. Governance intent fully honored.
