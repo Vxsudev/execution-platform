@@ -138,5 +138,9 @@
   "sheet2-inclusive-import-capture": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-18T06:53:02Z"
+  },
+  "import-preview-ux-friction-fix": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-18T07:08:46Z"
   }
 }

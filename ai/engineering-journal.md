@@ -2427,3 +2427,101 @@ In-session worker. Recon initially found the premise unmatched (source workbook 
 the operator supplied the current workbook, which exposed the real dropped row (54), so the fix was
 implemented and verified against that exact file. Supervisor enforced invariant gates and wrote the
 canonical journal entry.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+import-preview-ux-friction-fix
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/import-preview-ux-friction-fix.md
+
+### Tasks
+
+
+- tasks/import-preview-ux-friction-fix-001.md [backend]
+- tasks/import-preview-ux-friction-fix-002.md [frontend]
+- tasks/import-preview-ux-friction-fix-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T07:08:46Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Import Preview UX Friction Fix
+
+**Capability:** Streamline the Import tab (warning bullets, auto-preview, preview pagination)
+**Branch:** main
+
+### Operator Requirement (live Railway smoke)
+
+Replace the long "Import from XLSX" paragraph with minimal warning-meaning bullets; auto-run
+preview on file selection (remove the Preview button); paginate the preview so all importable
+rows can be reviewed (was capped at first 10).
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/public/app.js` | `state.importPage`; paragraph → `import-legend` bullets; removed `#importPreviewBtn`; file `onchange` auto-preview with `#importStatus` "Previewing…"; paginated importable table (size 20) with `#importPrev`/`#importNext` + "showing X–Y of N"; reset `importPage` on new preview / commit / tab entry |
+| `app/public/style.css` | minimal `.import-legend` / `.import-pager` / `.import-status` rules |
+
+### Behavior After Change
+
+- **Guidance:** concise bullets — warnings are informational (blank owner→Unassigned, blank
+  track→Unassigned Track, blank status→Not Started, blank-title-with-data→Untitled, non-canonical
+  track→as-is), never blocking.
+- **Auto-preview:** selecting an `.xlsx` runs preview immediately (input disabled + "Previewing…"
+  during the call); a different file replaces the prior preview; no Preview button. Commit stays
+  disabled until preview has rows.
+- **Pagination:** importable rows shown 20/page with Previous/Next and "showing X–Y of N";
+  page index clamped. Display only — commit still sends all `p.rows`.
+
+### Verification Results (disposable DB; live `app/data.db` untouched)
+
+| Check | Result |
+|-------|--------|
+| `node --check` app.js / server.js / db.js; dev boot smoke | PASS — live DB unchanged |
+| No `importPreviewBtn`; file `onchange` auto-preview; bullets + status present | PASS (static) |
+| Importable paginated (size 20) + "showing X–Y of N"; no importable `slice(0,10)` cap | PASS (static) |
+| Pagination covers all 64 rows across 4 pages (1–20, 21–40, 41–60, 61–64) | PASS |
+| API parity: preview 64 == commit 64 (commit sends all rows); batch delete 64 | PASS |
+| Invariants 5/5 (pre-exec + pre-verify); diff = `app/public/app.js` + `app/public/style.css` | PASS |
+
+### Preserved (unchanged)
+
+Import parser, commit behavior, Sheet 2 inclusive capture, duplicate detection, observation
+capture, batch delete integrity, access-control removal, row-click edit, auth/session, DB_PATH,
+bootstrap, Railway config, schema. No `app/server.js`/`app/db.js`/`index.html` change; no
+Docker/Postgres/deploy.
+
+### Unresolved Risks
+
+- None material. Pagination is display-only; commit payload is the full importable set.
+
+### Next Recommended Node
+
+Railway redeploy smoke — confirm the streamlined Import tab (auto-preview + pagination) live.
+
+### Execution Model Note
+
+In-session worker. Backend task (001) was a confirmation no-op (preview response already carried
+the needed data). Supervisor enforced invariant gates and wrote the canonical journal entry.

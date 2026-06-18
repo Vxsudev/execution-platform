@@ -4,7 +4,7 @@ const state = {
   user: null, fields: [], types: [], statuses: [], tracks: [], rows: [], editing: null,
   search: '', filters: { status: '', track: '', type: '' }, workspace: 'all',
   page: 'rows', users: [], importPreview: null, imports: [], importFilename: null,
-  allowDuplicates: false, expandedCells: new Set(),
+  allowDuplicates: false, expandedCells: new Set(), importPage: 0,
 };
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
@@ -196,6 +196,7 @@ function renderApp() {
       if (state.page === 'import') { state.page = 'rows'; renderApp(); return; }
       state.page = 'import';
       state.importPreview = null;
+      state.importPage = 0;
       renderApp();
       loadImports().then(renderApp);
     };
@@ -560,19 +561,35 @@ function renderImportPanel() {
       ${dupCount > 0 ? ` · <span class="warn-text">${dupCount} duplicate${dupCount === 1 ? '' : 's'}</span>` : ''}
       ${obsCount != null ? ` · <span class="ok">~${obsCount} observation${obsCount === 1 ? '' : 's'}</span>${sheetCount != null ? ` across ${sheetCount} sheet${sheetCount === 1 ? '' : 's'}` : ''}` : ''}
     </div>` : '';
-  const importable = (p && p.rows.length) ? `
-    <h3 class="import-h">Importable rows preview (first 10 of ${p.rows.length})</h3>
+  const IMPORT_PAGE_SIZE = 20;
+  let importable = '';
+  if (p && p.rows.length) {
+    const total = p.rows.length;
+    const maxPage = Math.max(0, Math.ceil(total / IMPORT_PAGE_SIZE) - 1);
+    const page = Math.min(Math.max(0, state.importPage || 0), maxPage);
+    const start = page * IMPORT_PAGE_SIZE;
+    const end = Math.min(start + IMPORT_PAGE_SIZE, total);
+    const pageRows = p.rows.slice(start, end);
+    const pager = total > IMPORT_PAGE_SIZE ? `
+      <div class="import-pager">
+        <button class="btn sm" id="importPrev"${page === 0 ? ' disabled' : ''}>Previous</button>
+        <span class="pager-info">Page ${page + 1} of ${maxPage + 1}</span>
+        <button class="btn sm" id="importNext"${page === maxPage ? ' disabled' : ''}>Next</button>
+      </div>` : '';
+    importable = `
+    <h3 class="import-h">Importable rows preview — showing ${start + 1}–${end} of ${total}</h3>
     <div class="table-scroll"><table><thead><tr>
       <th>Row</th><th>Owner</th><th>Track</th><th>Title</th><th>Status</th><th>Type</th><th>Warnings</th>
     </tr></thead><tbody>
-      ${p.rows.slice(0, 10).map(r => `<tr>
+      ${pageRows.map(r => `<tr>
         <td>${r.row_number}</td>
         <td>${esc(r.data.owner)}</td><td>${esc(r.data.track)}</td>
         <td>${esc(r.data.title)}${r.duplicate ? ` <span class="badge warn" title="${esc(r.duplicate_reason || 'duplicate')}">Duplicate</span>` : ''}</td>
         <td>${esc(r.data.status)}</td><td>${esc(r.data.type)}</td>
         <td class="trunc" title="${esc(r.warnings.join('; '))}">${esc(r.warnings.join('; ') || '—')}</td>
       </tr>`).join('')}
-    </tbody></table></div>` : '';
+    </tbody></table></div>${pager}`;
+  }
   const skipped = (p && p.skipped_rows.length) ? `
     <h3 class="import-h">Skipped rows (${p.skipped_rows.length}) — not imported</h3>
     <div class="table-scroll"><table><thead><tr><th>Row</th><th>Reason</th></tr></thead><tbody>
@@ -601,10 +618,17 @@ function renderImportPanel() {
   return `
     <div class="import-panel">
       <h2 class="users-title">Import from XLSX</h2>
-      <p class="import-note">Admin only. Capture-first import: every row with a title is imported. Blank owner becomes "Unassigned", blank track becomes "Unassigned Track", and blank or unrecognized status becomes "Not Started"; non-canonical tracks import as-is. Issues are shown as warnings, not blockers. Nothing is written until you commit. The database is the source of truth — a one-time import, not a sync.</p>
+      <ul class="import-legend">
+        <li><strong>Warnings are informational</strong> — they never block a row.</li>
+        <li>Blank owner → imported as <code>Unassigned</code></li>
+        <li>Blank track → imported as <code>Unassigned Track</code></li>
+        <li>Blank status → imported as <code>Not Started</code></li>
+        <li>Blank title with other data → imported as <code>Untitled</code></li>
+        <li>Non-canonical track → imported as-is</li>
+      </ul>
       <div class="import-controls">
         <input type="file" id="importFile" accept=".xlsx" />
-        <button class="btn" id="importPreviewBtn">Preview</button>
+        <span class="import-status" id="importStatus"></span>
         <button class="btn primary" id="importCommitBtn"${commitDisabled}>Commit Import</button>
         ${(p && dupCount > 0) ? `<label class="import-dup-label"><input type="checkbox" id="importAllowDupsCb"${state.allowDuplicates ? ' checked' : ''} /> Import duplicates anyway</label>` : ''}
       </div>
@@ -631,22 +655,38 @@ function fileToBase64(file) {
 
 function bindImportActions() {
   const errEl = document.getElementById('importErr');
-  const setErr = (m) => { if (errEl) errEl.textContent = m || ''; };
-  document.getElementById('importPreviewBtn').onclick = async () => {
+  const setErr = (m) => { const e = document.getElementById('importErr'); if (e) e.textContent = m || ''; if (errEl && errEl !== e) errEl.textContent = m || ''; };
+  // Auto-preview: selecting a .xlsx runs preview immediately (no Preview button). A new file
+  // selection replaces any prior preview. Display only — commit still sends all importable rows.
+  const fileEl = document.getElementById('importFile');
+  if (fileEl) fileEl.onchange = async () => {
     setErr('');
-    const fileEl = document.getElementById('importFile');
-    const file = fileEl && fileEl.files && fileEl.files[0];
-    if (!file) { setErr('Choose a .xlsx file first.'); return; }
+    const file = fileEl.files && fileEl.files[0];
+    if (!file) return; // no selection → no preview
     if (!/\.xlsx$/i.test(file.name)) { setErr('File must be a .xlsx workbook.'); return; }
+    const statusEl = document.getElementById('importStatus');
+    if (statusEl) statusEl.textContent = 'Previewing…';
+    fileEl.disabled = true;
     try {
       const content_base64 = await fileToBase64(file);
       const data = await api('/import/preview', { method: 'POST', body: { filename: file.name, content_base64 } });
       state.importPreview = data;
       state.importFilename = file.name;
+      state.importPage = 0;
       state.allowDuplicates = false;
       renderApp();
-    } catch (e) { setErr(e.message); }
+    } catch (e) {
+      state.importPreview = null;
+      state.importFilename = null;
+      state.importPage = 0;
+      renderApp();
+      setErr(e.message);
+    }
   };
+  const prevBtn = document.getElementById('importPrev');
+  if (prevBtn) prevBtn.onclick = () => { state.importPage = Math.max(0, (state.importPage || 0) - 1); renderApp(); };
+  const nextBtn = document.getElementById('importNext');
+  if (nextBtn) nextBtn.onclick = () => { state.importPage = (state.importPage || 0) + 1; renderApp(); };
   const dupCb = document.getElementById('importAllowDupsCb');
   if (dupCb) dupCb.onchange = () => { state.allowDuplicates = dupCb.checked; };
   const commitBtn = document.getElementById('importCommitBtn');
@@ -666,6 +706,7 @@ function bindImportActions() {
       state.importPreview = null;
       state.importFilename = null;
       state.allowDuplicates = false;
+      state.importPage = 0;
       state.page = 'rows';
       state.workspace = 'all';
       await loadRows();
