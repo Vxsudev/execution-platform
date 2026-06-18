@@ -10,7 +10,17 @@ const defaultDbPath = path.join(__dirname, 'data.db');
 const configuredDbPath = process.env.DB_PATH && process.env.DB_PATH.trim()
   ? process.env.DB_PATH.trim()
   : defaultDbPath;
-fs.mkdirSync(path.dirname(configuredDbPath), { recursive: true });
+
+// --- Startup diagnostics (volume/path verification) ---
+console.log('[db] DB_PATH env var present:', Boolean(process.env.DB_PATH && process.env.DB_PATH.trim()));
+console.log('[db] Resolved database path:', configuredDbPath);
+console.log('[db] Using default (ephemeral) path:', configuredDbPath === defaultDbPath);
+const _dbDir = path.dirname(configuredDbPath);
+console.log('[db] Database directory:', _dbDir);
+console.log('[db] Database directory exists:', fs.existsSync(_dbDir));
+// --- End startup diagnostics ---
+
+fs.mkdirSync(_dbDir, { recursive: true });
 const db = new DatabaseSync(configuredDbPath);
 try {
   db.exec("PRAGMA journal_mode = WAL;");
@@ -136,6 +146,10 @@ if (process.env.NODE_ENV === 'production') {
     // BOOTSTRAP_ADMIN_PASSWORD of any length is accepted; presence + partial-config
     // fail-closed above still apply, and the password is bcrypt-hashed below.
     const _adminCount = db.prepare("SELECT COUNT(*) c FROM users WHERE role = 'admin'").get().c;
+    // --- Startup diagnostics (bootstrap decision) ---
+    console.log('[db] Admin user count (pre-bootstrap):', _adminCount);
+    console.log('[db] Bootstrap will run:', _adminCount === 0);
+    // --- End startup diagnostics ---
     if (_adminCount === 0) {
       db.prepare("INSERT INTO users (username, password_hash, role, track_scope) VALUES (?, ?, 'admin', '[]')")
         .run(_bUser.trim(), bcrypt.hashSync(_bPass.trim(), 10));
