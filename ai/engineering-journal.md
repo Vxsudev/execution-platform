@@ -2525,3 +2525,99 @@ Railway redeploy smoke — confirm the streamlined Import tab (auto-preview + pa
 
 In-session worker. Backend task (001) was a confirmation no-op (preview response already carried
 the needed data). Supervisor enforced invariant gates and wrote the canonical journal entry.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+clicked-cell-field-highlight
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/clicked-cell-field-highlight.md
+
+### Tasks
+
+
+- tasks/clicked-cell-field-highlight-001.md [backend]
+- tasks/clicked-cell-field-highlight-002.md [frontend]
+- tasks/clicked-cell-field-highlight-003.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T07:22:14Z.
+All 3 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+## Addendum — Clicked Cell Field Highlight
+
+**Capability:** When a table cell is clicked, subtly highlight the matching field in the edit form
+**Branch:** main
+
+### Operator Requirement (live Railway smoke)
+
+Clicking a row/cell already opens the edit form (correct), but the form didn't indicate which
+field matched the clicked cell. Highlight the corresponding field so it's easy to find.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/public/app.js` | `data-col="${k}"` on every data `<td>`; row `onclick` derives the clicked `td[data-col]` and calls `openForm(row, col)`; `openForm(row, focusKey)` adds `.field-highlight` to the matching `.field`, `scrollIntoView({block:'center',behavior:'smooth'})`, and `focus({preventScroll:true})` |
+| `app/public/style.css` | subtle `.field-highlight` — one-shot `@keyframes fieldFlash` (~2.4s fading tint) + accent label/border via `--accent` (dark-mode friendly) |
+
+### Behavior After Change
+
+- Clicking a cell opens the edit form and highlights the field for that column (cell→field via
+  shared `data-col` / `data-k` key; all 14 `LIST_COLS` map to a `ROW_FIELDS` field, incl. `type`).
+- Highlight is display-only: it does not change values, submit, or block typing (it focuses the
+  control for immediate editing). No matching field / no clicked column (Enter-open, New row) →
+  form opens unchanged.
+
+### Verification Results (disposable/boot only; live `app/data.db` untouched)
+
+| Check | Result |
+|-------|--------|
+| `node --check` app.js / server.js / db.js; dev boot smoke | PASS — live DB unchanged |
+| Data cells carry `data-col`; row `onclick` → `openForm(row, col)` | PASS (static) |
+| `openForm` highlights matching `.field` + scrolls + focuses; no-match opens unchanged | PASS (static) |
+| `.field-highlight` + `@keyframes fieldFlash` present in CSS | PASS |
+| All 14 `LIST_COLS` keys map to `ROW_FIELDS` fields | PASS |
+| Details / Delete / More-Less / Enter-open / Save / `.modal-back` z-index preserved | PASS |
+| Invariants 5/5 (pre-exec + pre-verify); diff = `app/public/app.js` + `app/public/style.css` | PASS |
+
+### Preserved (unchanged)
+
+Row-click-to-edit; Edit button stays removed; Details/Delete/More-Less; modal layering; import,
+access-control, auth/session, DB_PATH, bootstrap, Railway config, schema. No backend/
+`index.html` change; no Docker/Postgres/deploy.
+
+### Unresolved Risks
+
+- None material. Highlight is a subtle, display-only affordance; headless tests can't simulate the
+  DOM click, so behavior is assured via static structure + the column→field mapping guarantee.
+
+### Next Recommended Node
+
+Railway redeploy smoke — confirm clicked-cell field highlight on the live deployment.
+
+### Execution Model Note
+
+In-session worker. Backend task (001) was a confirmation no-op (cell→field mapping is
+client-derivable from the existing schema). Supervisor enforced invariant gates and wrote the
+canonical journal entry.

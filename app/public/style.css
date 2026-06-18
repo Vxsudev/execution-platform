@@ -79,6 +79,11 @@ tr:hover td{background:var(--panel2)}
 .field input,.field select,.field textarea{padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);width:100%}
 .field textarea{min-height:62px;resize:vertical}
 .field .help{color:var(--muted);font-size:11px;line-height:1.4}
+/* Clicked-cell field highlight: subtle fading tint + accent border/label (dark-mode friendly). */
+@keyframes fieldFlash{from{background:rgba(110,168,254,.18)}to{background:transparent}}
+.field-highlight{animation:fieldFlash 2.4s ease-out;border-radius:8px}
+.field-highlight>label{color:var(--accent)}
+.field-highlight input,.field-highlight select,.field-highlight textarea{border-color:var(--accent)}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
 .error{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
 .modal-sm{width:320px}

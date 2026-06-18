@@ -142,5 +142,9 @@
   "import-preview-ux-friction-fix": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-18T07:08:46Z"
+  },
+  "clicked-cell-field-highlight": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-18T07:22:15Z"
   }
 }

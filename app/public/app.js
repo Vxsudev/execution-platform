@@ -256,20 +256,20 @@ function renderTable(rows) {
   const head = LIST_COLS.map((k) => `<th>${esc(colLabel(k))}</th>`).join('') + '<th>Actions</th>';
   const body = rows.map((r) => {
     const cells = LIST_COLS.map((k) => {
-      if (k === 'type') return `<td><span class="tag type-${esc(r.type)}">${esc(TYPE_LABEL[r.type] || r.type)}</span></td>`;
-      if (k === 'status') return `<td><span class="status s-${esc((r.status || '').replace(/\s/g, '.'))}">${esc(r.status)}</span></td>`;
+      if (k === 'type') return `<td data-col="type"><span class="tag type-${esc(r.type)}">${esc(TYPE_LABEL[r.type] || r.type)}</span></td>`;
+      if (k === 'status') return `<td data-col="status"><span class="status s-${esc((r.status || '').replace(/\s/g, '.'))}">${esc(r.status)}</span></td>`;
       if (TRUNC_COLS.has(k)) {
         const v = r[k] || '';
         if (v.length > 80) {
           const ck = `${r.id}:${k}`;
           const expanded = state.expandedCells.has(ck);
           return expanded
-            ? `<td class="trunc has-toggle expanded"><span class="cell-text">${esc(v)}</span><button class="cell-toggle" data-cell-toggle="${esc(ck)}" aria-expanded="true">Less</button></td>`
-            : `<td class="trunc has-toggle" title="${esc(v)}"><span class="cell-text">${esc(v)}</span><button class="cell-toggle" data-cell-toggle="${esc(ck)}" aria-expanded="false">More</button></td>`;
+            ? `<td class="trunc has-toggle expanded" data-col="${k}"><span class="cell-text">${esc(v)}</span><button class="cell-toggle" data-cell-toggle="${esc(ck)}" aria-expanded="true">Less</button></td>`
+            : `<td class="trunc has-toggle" data-col="${k}" title="${esc(v)}"><span class="cell-text">${esc(v)}</span><button class="cell-toggle" data-cell-toggle="${esc(ck)}" aria-expanded="false">More</button></td>`;
         }
-        return `<td class="trunc" title="${esc(v)}">${esc(v)}</td>`;
+        return `<td class="trunc" data-col="${k}" title="${esc(v)}">${esc(v)}</td>`;
       }
-      return `<td>${esc(r[k])}</td>`;
+      return `<td data-col="${k}">${esc(r[k])}</td>`;
     }).join('');
     return `<tr class="clickable-row" data-row-id="${r.id}" tabindex="0">${cells}<td><div class="row-actions">
       <button class="icon-btn" data-info="${r.id}">Details</button>
@@ -305,7 +305,9 @@ function bindRowActions() {
     // controls) are ignored here so Details, Delete, and More/Less keep their own behavior.
     tr.onclick = (e) => {
       if (e.target.closest('button, a, input, select, textarea')) return;
-      openForm(row);
+      // Pass the clicked column key so openForm can highlight the matching field.
+      const cell = e.target.closest('td[data-col]');
+      openForm(row, cell ? cell.dataset.col : null);
     };
     tr.onkeydown = (e) => {
       if (e.key === 'Enter') { e.preventDefault(); openForm(row); }
@@ -835,7 +837,7 @@ async function openDetails(row) {
 }
 
 // ---------- create / edit form ----------
-function openForm(row) {
+function openForm(row, focusKey) {
   const isEdit = !!row;
   const val = (k) => {
     if (row && row[k] != null) return row[k];
@@ -877,6 +879,16 @@ function openForm(row) {
   document.body.appendChild(back);
   back.addEventListener('mousedown', (e) => { if (e.target === back) back.remove(); });
   back.querySelector('#cancelBtn').onclick = () => back.remove();
+  // Subtly highlight + reveal the field matching the clicked table cell (display only —
+  // never changes the value). No focusKey (e.g. New row, Enter-open) opens unchanged.
+  if (focusKey) {
+    const control = back.querySelector('[data-k="' + focusKey + '"]');
+    if (control) {
+      (control.closest('.field') || control).classList.add('field-highlight');
+      try { control.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+      try { control.focus({ preventScroll: true }); } catch (_) {}
+    }
+  }
   back.querySelector('#saveBtn').onclick = async () => {
     const payload = {};
     back.querySelectorAll('[data-k]').forEach((el) => { payload[el.dataset.k] = el.value; });
