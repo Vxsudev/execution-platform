@@ -150,5 +150,9 @@
   "mysql-persistence-migration": {
     "state": "RELEASE_APPROVED",
     "updated_at": "2026-06-18T09:20:18Z"
+  },
+  "guard-demo-entries-seed-prod-mysql": {
+    "state": "RELEASE_APPROVED",
+    "updated_at": "2026-06-18T12:38:43Z"
   }
 }
