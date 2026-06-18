@@ -2621,3 +2621,71 @@ Railway redeploy smoke — confirm clicked-cell field highlight on the live depl
 In-session worker. Backend task (001) was a confirmation no-op (cell→field mapping is
 client-derivable from the existing schema). Supervisor enforced invariant gates and wrote the
 canonical journal entry.
+
+---
+
+## railway-db-persistence-app-side-recon — 2026-06-18T08:22:30Z
+
+**State:** RECON_READY → SPEC_LOCKED → TASK_GRAPH_LOCKED → EXECUTION_ACTIVE → VERIFICATION_REQUIRED → RELEASE_APPROVED
+**HEAD at recon:** 2516932
+**Verdict:** B — App masks Railway mount failure
+
+### Directive
+
+Operator reports a Railway persistence failure (volume attachment unstable / staged-looping).
+App-side authority recon to confirm whether application code can cause DB reset / ephemeral fallback /
+bootstrap overwrite / destructive seed / deploy-time wipe. RECON ONLY unless a safe diagnostic
+hardening patch is proven necessary.
+
+### Findings (app/db.js, app/server.js)
+
+- DB path honors `DB_PATH` (default `app/data.db`); `/data/data.db` used when env set.
+- `fs.mkdirSync(dirname, { recursive: true })` **masks a missing mount** — creates `/data` on ephemeral
+  fs, then SQLite opens a **fresh** DB → reset-on-redeploy mechanism. This is Verdict B.
+- Bootstrap creates admin only when none exists; **never overwrites** an existing admin password.
+  Leftover `BOOTSTRAP_ADMIN_PASSWORD` cannot reset an admin.
+- **No destructive startup code** anywhere in `app/` (no DELETE/DROP/TRUNCATE/reset). ALTERs are
+  idempotent/additive. Demo *entries* seed is additive + empty-table-only (documented, not changed).
+- Import commit writes synchronously to the DB (`server.js:532`); durable iff the DB file persists —
+  a victim, not a cause. Auth/session has no persistence impact.
+
+### Patch (proven necessary)
+
+`app/db.js`: production-only fail-fast guard inserted before `mkdirSync`. When `NODE_ENV=production`
+and `DB_PATH` starts with `/data/`, refuse to proceed unless `RAILWAY_VOLUME_MOUNT_PATH` is set AND
+`/data` exists; otherwise `console.error(FATAL ...)` + `process.exit(1)`. No schema/bootstrap/seed/
+import/auth/config change; no secrets logged.
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `node --check app/db.js` / `app/server.js` | PASS |
+| Success (`/tmp` path): guard skipped, bootstrap runs | PASS — exit 0 |
+| Failure (`/data`, no volume env): FATAL + `/data` not created | PASS — exit 1, `/data` absent |
+| Staged-loop (`RAILWAY_VOLUME_MOUNT_PATH` set, `/data` missing) | PASS — FATAL exit 1 |
+| Healthy mount (env set + dir exists) | PASS — proceeds (branch-simulated) |
+| `scripts/invariant-check.sh` | 5/5 PASS |
+| Adapter check | 12 PASS / 0 FAIL |
+
+Disposable DB paths only; live `app/data.db` untouched; no Railway config changed; no deploy.
+
+### Preserved (unchanged)
+
+Schema, bootstrap semantics, demo/seed behavior, import parser + commit, auth/session, Railway/Docker
+config, package files, frontend. Dev and non-`/data` paths fully unaffected by the guard.
+
+### Unresolved Risks
+
+- Demo *entries* seed (`db.js:159`) lacks a `NODE_ENV` guard. Additive + empty-table-only, so not a
+  reset cause; intentionally not changed to honor seed-semantics constraint. Recon §7 tracks it.
+
+### Next Recommended Node
+
+Railway clean volume reset + persistence smoke — confirm `RAILWAY_VOLUME_MOUNT_PATH=/data`, volume
+attached, then verify a row survives a redeploy.
+
+### Execution Model Note
+
+In-session worker. Guard is a minimal diagnostic-hardening patch (recon §6), proven necessary by an
+active persistence failure; converts silent ephemeral-DB creation into a loud fatal error.

@@ -10,6 +10,24 @@ const defaultDbPath = path.join(__dirname, 'data.db');
 const configuredDbPath = process.env.DB_PATH && process.env.DB_PATH.trim()
   ? process.env.DB_PATH.trim()
   : defaultDbPath;
+
+// Production persistence guard (railway-db-persistence-app-side-recon, Verdict B).
+// When DB_PATH targets the Railway volume mount (/data/...), refuse to silently create
+// an ephemeral database if the volume is not actually mounted. Without this, the
+// mkdirSync below would create /data on the container's ephemeral filesystem and SQLite
+// would open a fresh DB there — making a failed/absent volume mount look like a normal
+// first boot and discarding data on every redeploy. A healthy Railway volume both sets
+// RAILWAY_VOLUME_MOUNT_PATH and has its mount directory present before this point.
+if (process.env.NODE_ENV === 'production' && configuredDbPath.startsWith('/data/')) {
+  const volumeMount = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+  const volumeConfigured = Boolean(volumeMount && volumeMount.trim());
+  const volumePresent = volumeConfigured && fs.existsSync('/data');
+  if (!volumePresent) {
+    console.error('FATAL: DB_PATH points to /data/data.db but Railway volume mount /data is not present. Refusing to create an ephemeral production database.');
+    process.exit(1);
+  }
+}
+
 fs.mkdirSync(path.dirname(configuredDbPath), { recursive: true });
 const db = new DatabaseSync(configuredDbPath);
 try {
