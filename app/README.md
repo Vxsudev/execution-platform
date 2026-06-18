@@ -4,8 +4,21 @@ Active v1 scaffold promoted from `prototypes/execution-table-app/`.
 
 ## Runtime Requirement
 
-Node >= 24 — the app uses the built-in `node:sqlite` module, which is unflagged
-since Node 23.4. Railway pins Node 24 via `app/.nvmrc`.
+Node >= 24. The app uses a dual-backend DB adapter: **MySQL** (`mysql2`) in production and the
+built-in **`node:sqlite`** module for local development (unflagged since Node 23.4). Railway pins
+Node 24 via `app/.nvmrc`.
+
+## Database Provider
+
+`app/db.js` exposes an async DB adapter (`dba.get/all/run/tx`) with two interchangeable backends,
+selected automatically by environment:
+
+- **MySQL** (production) — used when `MYSQL_URL` or `MYSQLHOST` is set. On Railway, point these at the
+  managed MySQL service. **No persistent volume is required or used.**
+- **SQLite** (local development) — used otherwise; persists to `DB_PATH` or `app/data.db`.
+
+Schema, bootstrap, import, and access-control behavior are identical across backends. Type/status/role
+validation is enforced at the application layer (not via DB ENUM/CHECK) for portability.
 
 ## Quick Start
 
@@ -268,7 +281,9 @@ These values are defined in `db.js` as `TRACKS`, exposed via `GET /api/schema` a
 | `SESSION_SECRET` | **Yes** | Cryptographic signing key for session tokens. Min 32 chars. Boot fails if absent. |
 | `NODE_ENV` | Yes (set to `production`) | Controls demo seed, cookie security, and startup checks. |
 | `PORT` | No | Server port. Defaults to 3000. |
-| `DB_PATH` | Yes (for durable data) | Absolute path to SQLite file. Set to `/data/data.db` when using Railway volume. Defaults to `app/data.db` if unset. |
+| `MYSQL_URL` | **Yes** (preferred) | MySQL connection string (`mysql://user:pass@host:port/db`). Selects the MySQL backend. On Railway, reference the MySQL service's `MYSQL_URL`. |
+| `MYSQLHOST` / `MYSQLPORT` / `MYSQLUSER` / `MYSQLPASSWORD` / `MYSQLDATABASE` | Fallback | Individual MySQL connection vars, used when `MYSQL_URL` is unset. Presence of `MYSQLHOST` also selects the MySQL backend. |
+| `DB_PATH` | No (local dev only) | SQLite file path for **local development** (SQLite backend, used only when no MySQL vars are set). Defaults to `app/data.db`. **Retired from the production path** — production uses MySQL, not a Railway volume. |
 | `BOOTSTRAP_ADMIN_USERNAME` | First boot only | Admin username to create on first production boot. Must pair with `BOOTSTRAP_ADMIN_PASSWORD`. |
 | `BOOTSTRAP_ADMIN_PASSWORD` | First boot only | Admin password (no length minimum). Stored as bcrypt hash. Remove from env after admin is created. |
 

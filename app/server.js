@@ -1,10 +1,13 @@
 // Backend API: auth + rows CRUD. Serves the static frontend from /public.
+// DB access goes through the async adapter `dba` (MySQL in production, SQLite for local
+// dev) — every handler that touches the DB is async and wrapped for Express-4 error
+// forwarding via wrap().
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
-const { db, ROW_FIELDS, ROW_TYPES, STATUSES, TRACKS } = require('./db');
+const { dba, ROW_FIELDS, ROW_TYPES, STATUSES, TRACKS } = require('./db');
 
 const app = express();
 const defaultJsonParser = express.json();
@@ -17,6 +20,10 @@ app.use((req, res, next) => {
   return defaultJsonParser(req, res, next);
 });
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Express 4 does not forward async-handler rejections to the error middleware;
+// wrap() does it so every async route surfaces failures as a 500 JSON response.
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 const SID = 'sid';
 const FIELD_KEYS = ROW_FIELDS.map(f => f.key);
@@ -74,31 +81,32 @@ function parseCookies(req) {
   }
   return out;
 }
-function currentUser(req) {
+async function currentUser(req) {
   const signed = parseCookies(req)[SID];
   const token = verifyToken(signed);
   if (!token) return null;
-  return db.prepare(
-    'SELECT u.id, u.username, u.role, u.track_scope FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
-  ).get(token) || null;
+  return (await dba.get(
+    'SELECT u.id, u.username, u.role, u.track_scope FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?',
+    token
+  )) || null;
 }
-function requireAuth(req, res, next) {
-  const u = currentUser(req);
+const requireAuth = wrap(async (req, res, next) => {
+  const u = await currentUser(req);
   if (!u) return res.status(401).json({ error: 'Not authenticated' });
   req.user = u;
   next();
-}
+});
 
 // ---- auth ----
-app.post('/api/login', (req, res) => {
+app.post('/api/login', wrap(async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(String(username).trim());
+  const user = await dba.get('SELECT * FROM users WHERE username = ?', String(username).trim());
   if (!user || !bcrypt.compareSync(String(password), user.password_hash)) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   const token = crypto.randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
+  await dba.run('INSERT INTO sessions (token, user_id) VALUES (?, ?)', token, user.id);
   res.cookie(SID, signToken(token), {
     httpOnly: true,
     sameSite: 'lax',
@@ -107,19 +115,19 @@ app.post('/api/login', (req, res) => {
     secure: process.env.NODE_ENV === 'production',
   });
   res.json({ user: { id: user.id, username: user.username } });
-});
-app.post('/api/logout', (req, res) => {
+}));
+app.post('/api/logout', wrap(async (req, res) => {
   const signed = parseCookies(req)[SID];
   const token = verifyToken(signed);
-  if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  if (token) await dba.run('DELETE FROM sessions WHERE token = ?', token);
   res.clearCookie(SID, { path: '/' });
   res.json({ ok: true });
-});
-app.get('/api/me', (req, res) => {
-  const u = currentUser(req);
+}));
+app.get('/api/me', wrap(async (req, res) => {
+  const u = await currentUser(req);
   if (!u) return res.status(401).json({ error: 'Not authenticated' });
   res.json({ user: { ...u, track_scope: parseScope(u) } });
-});
+}));
 app.get('/api/schema', requireAuth, (req, res) => {
   res.json({ fields: ROW_FIELDS, types: ROW_TYPES, statuses: STATUSES, tracks: TRACKS });
 });
@@ -157,15 +165,15 @@ function validate(data, partial, existingRow) {
   return null;
 }
 
-app.get('/api/rows', requireAuth, (req, res) => {
-  res.json({ rows: db.prepare('SELECT * FROM entries ORDER BY updated_at DESC, id DESC').all() });
-});
-app.get('/api/rows/:id', requireAuth, (req, res) => {
-  const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
+app.get('/api/rows', requireAuth, wrap(async (req, res) => {
+  res.json({ rows: await dba.all('SELECT * FROM entries ORDER BY updated_at DESC, id DESC') });
+}));
+app.get('/api/rows/:id', requireAuth, wrap(async (req, res) => {
+  const row = await dba.get('SELECT * FROM entries WHERE id = ?', req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
   res.json({ row });
-});
-app.post('/api/rows', requireAuth, (req, res) => {
+}));
+app.post('/api/rows', requireAuth, wrap(async (req, res) => {
   const data = sanitize(req.body || {});
   if (!data.type) data.type = 'experiment';
   const err = validate(data, false, null);
@@ -174,12 +182,12 @@ app.post('/api/rows', requireAuth, (req, res) => {
   data.created_by = req.user.username;
   data.updated_by = req.user.username;
   const keys = Object.keys(data);
-  const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
-    .run(...keys.map(k => data[k]));
-  res.status(201).json({ row: db.prepare('SELECT * FROM entries WHERE id = ?').get(Number(info.lastInsertRowid)) });
-});
-app.put('/api/rows/:id', requireAuth, (req, res) => {
-  const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
+  const info = await dba.run(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`,
+    ...keys.map(k => data[k]));
+  res.status(201).json({ row: await dba.get('SELECT * FROM entries WHERE id = ?', info.insertId) });
+}));
+app.put('/api/rows/:id', requireAuth, wrap(async (req, res) => {
+  const existing = await dba.get('SELECT * FROM entries WHERE id = ?', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const data = sanitize(req.body || {});
   const nextTrack = (data.track !== undefined && data.track !== existing.track) ? data.track : undefined;
@@ -188,16 +196,17 @@ app.put('/api/rows/:id', requireAuth, (req, res) => {
   if (err) return res.status(400).json({ error: err });
   const keys = Object.keys(data);
   if (keys.length) {
-    const setSql = keys.map(k => `${k} = ?`).join(', ') + ", updated_at = datetime('now'), updated_by = ?";
-    db.prepare(`UPDATE entries SET ${setSql} WHERE id = ?`).run(...keys.map(k => data[k]), req.user.username, req.params.id);
+    const setSql = keys.map(k => `${k} = ?`).join(', ') + ', updated_at = ?, updated_by = ?';
+    await dba.run(`UPDATE entries SET ${setSql} WHERE id = ?`,
+      ...keys.map(k => data[k]), dba.nowStamp(), req.user.username, req.params.id);
   }
-  res.json({ row: db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id) });
-});
-app.delete('/api/rows/:id', requireAuth, (req, res) => {
+  res.json({ row: await dba.get('SELECT * FROM entries WHERE id = ?', req.params.id) });
+}));
+app.delete('/api/rows/:id', requireAuth, wrap(async (req, res) => {
   if (!canDeleteRow(req.user)) return res.status(403).json({ error: 'Forbidden' });
-  db.prepare('DELETE FROM entries WHERE id = ?').run(req.params.id);
+  await dba.run('DELETE FROM entries WHERE id = ?', req.params.id);
   res.json({ ok: true });
-});
+}));
 
 // ---- user management ----
 const VALID_ROLES = ['admin', 'track_owner', 'viewer'];
@@ -217,13 +226,13 @@ function publicUser(u) {
   return { id: u.id, username: u.username, role: u.role, track_scope: parseScope(u), created_at: u.created_at };
 }
 
-app.get('/api/users', requireAuth, (req, res) => {
+app.get('/api/users', requireAuth, wrap(async (req, res) => {
   if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
-  const users = db.prepare('SELECT id, username, role, track_scope, created_at FROM users ORDER BY id').all();
+  const users = await dba.all('SELECT id, username, role, track_scope, created_at FROM users ORDER BY id');
   res.json({ users: users.map(publicUser) });
-});
+}));
 
-app.post('/api/users', requireAuth, (req, res) => {
+app.post('/api/users', requireAuth, wrap(async (req, res) => {
   if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const { username, password, role, track_scope } = req.body || {};
   if (!username || !String(username).trim()) return res.status(400).json({ error: 'username is required' });
@@ -237,22 +246,22 @@ app.post('/api/users', requireAuth, (req, res) => {
   if (normalizedScope === null) return res.status(400).json({ error: 'invalid track_scope' });
   try {
     const hash = bcrypt.hashSync(String(password), 10);
-    const info = db.prepare('INSERT INTO users (username, password_hash, role, track_scope) VALUES (?, ?, ?, ?)')
-      .run(String(username).trim(), hash, normalizedRole, normalizedScope);
-    const created = db.prepare('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?').get(info.lastInsertRowid);
+    const info = await dba.run('INSERT INTO users (username, password_hash, role, track_scope) VALUES (?, ?, ?, ?)',
+      String(username).trim(), hash, normalizedRole, normalizedScope);
+    const created = await dba.get('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?', info.insertId);
     res.status(201).json({ user: publicUser(created) });
   } catch (e) {
-    if (e.message && e.message.includes('UNIQUE constraint')) {
+    if (dba.isUniqueViolation(e)) {
       return res.status(400).json({ error: 'username already exists' });
     }
     throw e;
   }
-});
+}));
 
-app.put('/api/users/:id', requireAuth, (req, res) => {
+app.put('/api/users/:id', requireAuth, wrap(async (req, res) => {
   if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const id = Number(req.params.id);
-  const existing = db.prepare('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?').get(id);
+  const existing = await dba.get('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?', id);
   if (!existing) return res.status(404).json({ error: 'user not found' });
   const { role, track_scope, password } = req.body || {};
   if (req.user.id === id && role !== undefined && role !== 'admin') {
@@ -275,22 +284,22 @@ app.put('/api/users/:id', requireAuth, (req, res) => {
   }
   if (Object.keys(updates).length) {
     const setClause = Object.keys(updates).map(k => `${k} = ?`).join(', ');
-    db.prepare(`UPDATE users SET ${setClause} WHERE id = ?`).run(...Object.values(updates), id);
+    await dba.run(`UPDATE users SET ${setClause} WHERE id = ?`, ...Object.values(updates), id);
   }
-  const updated = db.prepare('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?').get(id);
+  const updated = await dba.get('SELECT id, username, role, track_scope, created_at FROM users WHERE id = ?', id);
   res.json({ user: publicUser(updated) });
-});
+}));
 
-app.delete('/api/users/:id', requireAuth, (req, res) => {
+app.delete('/api/users/:id', requireAuth, wrap(async (req, res) => {
   if (!canManageUsers(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const id = Number(req.params.id);
   if (req.user.id === id) return res.status(403).json({ error: 'cannot delete your own account' });
-  const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+  const existing = await dba.get('SELECT id FROM users WHERE id = ?', id);
   if (!existing) return res.status(404).json({ error: 'user not found' });
-  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  await dba.run('DELETE FROM sessions WHERE user_id = ?', id);
+  await dba.run('DELETE FROM users WHERE id = ?', id);
   res.json({ ok: true });
-});
+}));
 
 // ---- xlsx import (admin only) ----
 const IMPORT_SHEET = 'All Experiment Summary';
@@ -376,7 +385,7 @@ function parseImportWorkbook(buffer) {
 //   - blank owner  → "Unassigned"          (warn)
 //   - blank track  → "Unassigned Track"     (warn);  non-canonical track imports AS-IS (warn) — track is free TEXT
 //   - blank status → "Not Started"          (warn);  non-canonical status COERCED to "Not Started" (warn)
-// status is coerced because entries.status has a CHECK constraint (db.js is not modified);
+// status is coerced because entries.status is validated to its five canonical values;
 // type is coerced to a canonical value for the same reason. Returns normalized data + warnings.
 function classifyImportRow(data) {
   const d = data && typeof data === 'object' ? (data.data && typeof data.data === 'object' ? data.data : data) : {};
@@ -420,13 +429,13 @@ function buildLogicalDupKey(data) {
 
 const DUP_LOGIC_SQL = "SELECT id FROM entries WHERE lower(trim(title))=? AND lower(trim(coalesce(owner,'')))=? AND lower(trim(coalesce(track,'')))=? LIMIT 1";
 
-function findDuplicateForImportRow(data, sourceSheet, sourceRow) {
+async function findDuplicateForImportRow(data, sourceSheet, sourceRow) {
   if (sourceSheet && sourceRow) {
-    const byPos = db.prepare(
-      'SELECT id FROM entries WHERE import_source_sheet = ? AND import_source_row = ? LIMIT 1'
-    ).get(sourceSheet, sourceRow);
+    const byPos = await dba.get(
+      'SELECT id FROM entries WHERE import_source_sheet = ? AND import_source_row = ? LIMIT 1',
+      sourceSheet, sourceRow);
     if (byPos) {
-      const byLogic = db.prepare(DUP_LOGIC_SQL).get(
+      const byLogic = await dba.get(DUP_LOGIC_SQL,
         normalizeDupValue(data.title), normalizeDupValue(data.owner || ''), normalizeDupValue(data.track || ''));
       return {
         duplicate: true,
@@ -435,7 +444,7 @@ function findDuplicateForImportRow(data, sourceSheet, sourceRow) {
       };
     }
   }
-  const byLogic = db.prepare(DUP_LOGIC_SQL).get(
+  const byLogic = await dba.get(DUP_LOGIC_SQL,
     normalizeDupValue(data.title), normalizeDupValue(data.owner || ''), normalizeDupValue(data.track || ''));
   if (byLogic) {
     return { duplicate: true, duplicate_reason: 'logical_match', duplicate_entry_id: byLogic.id };
@@ -443,7 +452,7 @@ function findDuplicateForImportRow(data, sourceSheet, sourceRow) {
   return { duplicate: false };
 }
 
-app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
+app.post('/api/import/preview', importJsonParser, requireAuth, wrap(async (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const { filename, content_base64 } = req.body || {};
   if (!filename || !/\.xlsx$/i.test(String(filename))) return res.status(400).json({ error: 'filename must end in .xlsx' });
@@ -462,7 +471,7 @@ app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
     const c = classifyImportRow(data);
     if (!c.importable) { skipped_rows.push({ row_number, reason: c.reason, data }); continue; }
     warning_count += c.warnings.length;
-    const dupResult = findDuplicateForImportRow(c.data, parsed.sheet, row_number);
+    const dupResult = await findDuplicateForImportRow(c.data, parsed.sheet, row_number);
     if (dupResult.duplicate) duplicate_count++;
     rows.push({ row_number, warnings: c.warnings, data: c.data, duplicate: dupResult.duplicate, duplicate_reason: dupResult.duplicate_reason, duplicate_entry_id: dupResult.duplicate_entry_id });
   }
@@ -474,9 +483,9 @@ app.post('/api/import/preview', importJsonParser, requireAuth, (req, res) => {
     rows,
     skipped_rows,
   });
-});
+}));
 
-app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
+app.post('/api/import/commit', importJsonParser, requireAuth, wrap(async (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const { filename, sheet, rows } = req.body || {};
   if (!filename || typeof filename !== 'string' || !filename.trim() || !/\.xlsx$/i.test(filename))
@@ -490,24 +499,25 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
 
   // First pass: classify + detect duplicates, compute all counts before INSERT.
   let importable_rows = 0, parse_skipped = 0, warning_count = 0, duplicate_count = 0;
-  const classified = rows.map((row_item, i) => {
-    const { data, row_number } = row_item || {};
+  const classified = [];
+  for (let i = 0; i < rows.length; i++) {
+    const { data, row_number } = rows[i] || {};
     const c = classifyImportRow(data || {});
-    if (!c.importable) { parse_skipped++; return { index: i, c, row_number, dupResult: null }; }
+    if (!c.importable) { parse_skipped++; classified.push({ index: i, c, row_number, dupResult: null }); continue; }
     importable_rows++;
     warning_count += c.warnings.length;
-    const dupResult = findDuplicateForImportRow(c.data, sheetName, row_number);
+    const dupResult = await findDuplicateForImportRow(c.data, sheetName, row_number);
     if (dupResult.duplicate) duplicate_count++;
-    return { index: i, c, row_number, dupResult };
-  });
+    classified.push({ index: i, c, row_number, dupResult });
+  }
 
   const dup_skipped = allow_duplicates ? 0 : duplicate_count;
   const total_skipped = parse_skipped + dup_skipped;
 
-  const batchInfo = db.prepare(
-    'INSERT INTO imports (filename, imported_by, total_rows, importable_rows, skipped_rows, warning_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(filename, req.user.username, rows.length, importable_rows, total_skipped, warning_count, 'complete');
-  const batch_id = Number(batchInfo.lastInsertRowid);
+  const batchInfo = await dba.run(
+    'INSERT INTO imports (filename, imported_by, total_rows, importable_rows, skipped_rows, warning_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    filename, req.user.username, rows.length, importable_rows, total_skipped, warning_count, 'complete');
+  const batch_id = Number(batchInfo.insertId);
 
   const ids = [];
   const skipped = [];
@@ -529,9 +539,9 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
     row.import_source_row = typeof row_number === 'number' ? row_number : null;
     try {
       const keys = Object.keys(row);
-      const info = db.prepare(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
-        .run(...keys.map((k) => row[k]));
-      const entry_id = Number(info.lastInsertRowid);
+      const info = await dba.run(`INSERT INTO entries (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`,
+        ...keys.map((k) => row[k]));
+      const entry_id = Number(info.insertId);
       ids.push(entry_id);
       insertedObs.push({ source_row: row.import_source_row, entry_id, data: c.data });
     } catch (e) {
@@ -543,87 +553,101 @@ app.post('/api/import/commit', importJsonParser, requireAuth, (req, res) => {
   // are audit/source reality — never execution rows. A batch always carries at
   // least the workbook_sheet observation, so a zero-insert attempt still proves
   // captured workbook content.
-  const obsStmt = db.prepare(
-    'INSERT INTO import_observations (import_batch_id, source_sheet, source_row, observation_type, status, reason, raw_data) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  );
   let observation_count = 0;
-  const addObs = (source_row, observation_type, status, reason, rawObj) => {
-    obsStmt.run(batch_id, sheetName || null, source_row, observation_type, status, reason, rawObj == null ? null : JSON.stringify(rawObj));
+  const addObs = async (source_row, observation_type, status, reason, rawObj) => {
+    await dba.run(
+      'INSERT INTO import_observations (import_batch_id, source_sheet, source_row, observation_type, status, reason, raw_data) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      batch_id, sheetName || null, source_row, observation_type, status, reason, rawObj == null ? null : JSON.stringify(rawObj));
     observation_count++;
   };
   // 1) Always: one workbook_sheet observation capturing the attempt + counts.
-  addObs(null, 'workbook_sheet', 'captured', ids.length === 0 ? 'zero execution rows inserted' : null, {
+  await addObs(null, 'workbook_sheet', 'captured', ids.length === 0 ? 'zero execution rows inserted' : null, {
     total_rows: rows.length, importable_rows, inserted: ids.length, duplicate_skipped: dup_skipped, parse_skipped,
   });
   // 2) One per inserted execution row.
-  for (const o of insertedObs) addObs(o.source_row, 'imported_entry', 'imported', null, { ...o.data, entry_id: o.entry_id });
+  for (const o of insertedObs) await addObs(o.source_row, 'imported_entry', 'imported', null, { ...o.data, entry_id: o.entry_id });
   // 3) One per duplicate-skipped row.
-  for (const o of dupObs) addObs(o.source_row, 'duplicate_skipped', 'skipped', 'duplicate', { ...o.data, duplicate_entry_id: o.duplicate_entry_id });
+  for (const o of dupObs) await addObs(o.source_row, 'duplicate_skipped', 'skipped', 'duplicate', { ...o.data, duplicate_entry_id: o.duplicate_entry_id });
   // 4) One per parse-skipped row forwarded from the preview.
   for (const s of payloadSkipped) {
     if (!s || typeof s !== 'object') continue;
     const sr = typeof s.row_number === 'number' ? s.row_number : null;
-    addObs(sr, 'skipped_row', 'skipped', typeof s.reason === 'string' ? s.reason : 'skipped', s.data != null ? s.data : null);
+    await addObs(sr, 'skipped_row', 'skipped', typeof s.reason === 'string' ? s.reason : 'skipped', s.data != null ? s.data : null);
   }
 
   res.json({ ok: true, batch_id, inserted_count: ids.length, ids, skipped_count: skipped.length, skipped, duplicate_count, duplicate_skipped_count: dup_skipped, observation_count });
-});
+}));
 
-app.get('/api/imports', requireAuth, (req, res) => {
+app.get('/api/imports', requireAuth, wrap(async (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
-  const imports = db.prepare(
+  const imports = await dba.all(
     'SELECT id, filename, imported_by, imported_at, total_rows, importable_rows, skipped_rows, warning_count, status, ' +
     '(SELECT COUNT(*) FROM import_observations o WHERE o.import_batch_id = imports.id) AS observation_count ' +
     'FROM imports ORDER BY id DESC'
-  ).all();
+  );
   res.json({ imports });
-});
+}));
 
-app.delete('/api/imports/:id', requireAuth, (req, res) => {
+app.delete('/api/imports/:id', requireAuth, wrap(async (req, res) => {
   if (!canImport(req.user)) return res.status(403).json({ error: 'Forbidden' });
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid import id' });
-  const existing = db.prepare('SELECT id FROM imports WHERE id = ?').get(id);
+  const existing = await dba.get('SELECT id FROM imports WHERE id = ?', id);
   if (!existing) return res.status(404).json({ error: 'import batch not found' });
-  db.exec('BEGIN');
   try {
-    // Evidence-based legacy recovery: entries created by this batch under an older code
-    // version were not stamped with import_batch_id, but this batch's imported_entry
-    // observations recorded their entry_id in raw_data. Collect those ids (before deleting
-    // the observations) so the batch delete removes them too. Batch-scoped and evidence-based
-    // only — no heuristic matching and no global orphan sweep, so manual rows (never named in
-    // any observation) are never touched.
-    const legacyIds = [];
-    for (const o of db.prepare(
-      "SELECT raw_data FROM import_observations WHERE import_batch_id = ? AND observation_type = 'imported_entry'"
-    ).all(id)) {
-      if (!o.raw_data) continue;
-      let parsed; try { parsed = JSON.parse(o.raw_data); } catch (_) { continue; }
-      const eid = parsed && parsed.entry_id;
-      if (Number.isInteger(eid) && eid > 0) legacyIds.push(eid);
-    }
+    const result = await dba.tx(async (t) => {
+      // Evidence-based legacy recovery: entries created by this batch under an older code
+      // version were not stamped with import_batch_id, but this batch's imported_entry
+      // observations recorded their entry_id in raw_data. Collect those ids (before deleting
+      // the observations) so the batch delete removes them too. Batch-scoped and evidence-based
+      // only — no heuristic matching and no global orphan sweep, so manual rows (never named in
+      // any observation) are never touched.
+      const legacyIds = [];
+      for (const o of await t.all(
+        "SELECT raw_data FROM import_observations WHERE import_batch_id = ? AND observation_type = 'imported_entry'", id)) {
+        if (!o.raw_data) continue;
+        let parsed; try { parsed = JSON.parse(o.raw_data); } catch (_) { continue; }
+        const eid = parsed && parsed.entry_id;
+        if (Number.isInteger(eid) && eid > 0) legacyIds.push(eid);
+      }
 
-    const deleted_observation_count = db.prepare('DELETE FROM import_observations WHERE import_batch_id = ?').run(id).changes;
-    let deleted_entry_count = db.prepare('DELETE FROM entries WHERE import_batch_id = ?').run(id).changes;
+      const deleted_observation_count = (await t.run('DELETE FROM import_observations WHERE import_batch_id = ?', id)).changes;
+      let deleted_entry_count = (await t.run('DELETE FROM entries WHERE import_batch_id = ?', id)).changes;
 
-    // Remove any entries this batch's observations name that weren't already deleted above
-    // (legacy orphans whose import_batch_id was NULL). Current imports' rows were removed by
-    // the import_batch_id delete, so they are not double-counted here.
-    let deleted_legacy_count = 0;
-    if (legacyIds.length) {
-      const placeholders = legacyIds.map(() => '?').join(',');
-      deleted_legacy_count = db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).run(...legacyIds).changes;
-      deleted_entry_count += deleted_legacy_count;
-    }
+      // Remove any entries this batch's observations name that weren't already deleted above
+      // (legacy orphans whose import_batch_id was NULL). Current imports' rows were removed by
+      // the import_batch_id delete, so they are not double-counted here.
+      let deleted_legacy_count = 0;
+      if (legacyIds.length) {
+        const placeholders = legacyIds.map(() => '?').join(',');
+        deleted_legacy_count = (await t.run(`DELETE FROM entries WHERE id IN (${placeholders})`, ...legacyIds)).changes;
+        deleted_entry_count += deleted_legacy_count;
+      }
 
-    db.prepare('DELETE FROM imports WHERE id = ?').run(id);
-    db.exec('COMMIT');
-    res.json({ ok: true, deleted_observation_count, deleted_entry_count, deleted_legacy_count, deleted_import_id: id });
+      await t.run('DELETE FROM imports WHERE id = ?', id);
+      return { deleted_observation_count, deleted_entry_count, deleted_legacy_count };
+    });
+    res.json({ ok: true, ...result, deleted_import_id: id });
   } catch (e) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
     res.status(500).json({ error: 'delete failed: ' + (e && e.message ? e.message : 'unknown error') });
   }
+}));
+
+// Catch-all error handler: surfaces async-handler rejections forwarded by wrap().
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('Unhandled route error:', err && err.message ? err.message : 'unknown error');
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'internal error' });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`execution-table-app running on http://localhost:${PORT}`));
+dba.init()
+  .then(() => app.listen(PORT, () => console.log(`execution-table-app running on http://localhost:${PORT}`)))
+  .catch((err) => {
+    // Safe-log policy: never print credentials or the connection URL — code only.
+    console.error('FATAL: database initialization failed:', err && err.code ? err.code : 'unknown error');
+    process.exit(1);
+  });
+
+module.exports = app;
