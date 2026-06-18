@@ -5,6 +5,7 @@ const state = {
   search: '', filters: { status: '', track: '', type: '' }, workspace: 'all',
   page: 'rows', users: [], importPreview: null, imports: [], importFilename: null,
   allowDuplicates: false, expandedCells: new Set(), importPage: 0,
+  navCollapsed: localStorage.getItem('astraX.navCollapsed') === 'true',
 };
 
 const TYPE_LABEL = { experiment: 'Experiment', work_item: 'Work Item', task: 'Task' };
@@ -31,14 +32,18 @@ function dashboardRows() {
   return state.rows;
 }
 
-// Table columns: 13 Sheet-2 contract columns in workbook order, then a compact Type tag column.
+// Table columns: status promoted to 4th position for early scan visibility.
 const LIST_COLS = [
-  'owner', 'track', 'title', 'function_area', 'parent_item', 'hypothesis',
+  'owner', 'track', 'title', 'status', 'function_area', 'parent_item', 'hypothesis',
   'design', 'success_criteria', 'target_end_date', 'dependencies', 'outcome',
-  'next_action', 'status', 'type',
+  'next_action', 'type',
 ];
 // Long-text cells that get truncated with an ellipsis + full-text tooltip.
-const TRUNC_COLS = new Set(['hypothesis', 'design', 'success_criteria', 'outcome']);
+const TRUNC_COLS = new Set([
+  'title', 'parent_item',
+  'hypothesis', 'design', 'success_criteria',
+  'dependencies', 'outcome', 'next_action',
+]);
 // Columns the search box scans (case-insensitive substring).
 const SEARCH_COLS = [
   'title', 'owner', 'track', 'function_area', 'parent_item', 'hypothesis',
@@ -128,69 +133,102 @@ function renderApp() {
   const isImportPage = state.page === 'import';
   const isDashPage = state.page === 'dashboard';
   const isRowsPage = state.page === 'rows';
+  const navCollapsed = state.navCollapsed;
   $app.innerHTML = `
-    <div class="topbar">
-      <h1>astraX — Team Experiment Summary</h1>
-      <div class="ws-tabs">
-        <button class="ws-tab${isRowsPage ? ' active' : ''}" id="rowsPageBtn">Rows</button>
-        <button class="ws-tab${isDashPage ? ' active' : ''}" id="dashPageBtn">Dashboard</button>
-      </div>
-      ${isTrackOwner() && (isRowsPage || isDashPage) ? `
-        <div class="ws-tabs">
-          <button class="ws-tab${state.workspace === 'all' ? ' active' : ''}" id="wsAll">All Tracks</button>
-          <button class="ws-tab${state.workspace === 'my' ? ' active' : ''}" id="wsMy">My Track</button>
-        </div>` : ''}
-      ${isAdmin() ? `<button class="ws-tab${isUsersPage ? ' active' : ''}" id="usersPageBtn">Users</button>` : ''}
-      ${isAdmin() ? `<button class="ws-tab${isImportPage ? ' active' : ''}" id="importPageBtn">Import</button>` : ''}
-      <span class="who" id="rowCount"></span>
-      <div class="spacer"></div>
-      <span class="who">Signed in as <strong>${esc(state.user.username)}</strong></span>
-      ${isRowsPage && canCreateInCurrentWorkspace() ? '<button class="btn primary" id="newBtn">+ New row</button>' : ''}
-      <button class="btn ghost" id="logoutBtn">Log out</button>
-    </div>
-    ${isUsersPage ? `
-      <div class="wrap">
-        <div class="users-header">
-          <h2 class="users-title">Users</h2>
-          <button class="btn primary" id="newUserBtn">+ New user</button>
+    <div class="app-shell">
+      <nav class="nav-rail${navCollapsed ? ' collapsed' : ''}">
+        <div class="nav-logo">
+          <span class="nav-brand">astraX</span>
+          <button class="nav-toggle" id="navToggle" title="${navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}">${navCollapsed ? '»' : '«'}</button>
         </div>
-        <div class="table-scroll">${renderUsersTable()}</div>
+        <div class="nav-items">
+          <button class="nav-item${isRowsPage ? ' active' : ''}" id="navRows"><span class="nav-item-label">Rows</span><span class="nav-item-abbr" aria-hidden="true">Ro</span></button>
+          <button class="nav-item${isDashPage ? ' active' : ''}" id="navDash"><span class="nav-item-label">Dashboard</span><span class="nav-item-abbr" aria-hidden="true">Da</span></button>
+          ${isAdmin() ? `<button class="nav-item${isUsersPage ? ' active' : ''}" id="navUsers"><span class="nav-item-label">Users</span><span class="nav-item-abbr" aria-hidden="true">Us</span></button>` : ''}
+          ${isAdmin() ? `<button class="nav-item${isImportPage ? ' active' : ''}" id="navImport"><span class="nav-item-label">Import</span><span class="nav-item-abbr" aria-hidden="true">Im</span></button>` : ''}
+        </div>
+        <div class="nav-foot">
+          <div class="nav-user">
+            <span class="nav-user-full">Signed in as <strong>${esc(state.user.username)}</strong></span>
+            <span class="nav-user-short" title="Signed in as ${esc(state.user.username)}">${esc(state.user.username[0].toUpperCase())}</span>
+          </div>
+          <button class="btn ghost" id="logoutBtn"><span class="nav-item-label">Log out</span><span class="nav-item-abbr" aria-hidden="true">→</span></button>
+        </div>
+      </nav>
+      <div class="main-pane">
+        ${isUsersPage ? `
+          <div class="page-header">
+            <h2 class="page-title">Users</h2>
+            <span class="page-count" id="rowCount"></span>
+            <div class="spacer"></div>
+            <button class="btn primary" id="newUserBtn">+ New user</button>
+          </div>
+          <div class="wrap">
+            <div class="table-scroll">${renderUsersTable()}</div>
+          </div>
+        ` : isImportPage ? `
+          <span id="rowCount" style="display:none"></span>
+          <div class="wrap">${renderImportPanel()}</div>
+        ` : isDashPage ? `
+          <div class="page-header">
+            <h2 class="page-title">Dashboard</h2>
+            <span class="page-count" id="rowCount"></span>
+          </div>
+          ${isTrackOwner() ? `
+            <div class="page-ws">
+              <button class="ws-tab${state.workspace === 'all' ? ' active' : ''}" id="wsAll">All Tracks</button>
+              <button class="ws-tab${state.workspace === 'my' ? ' active' : ''}" id="wsMy">My Track</button>
+            </div>` : ''}
+          <div class="wrap">${renderDashboard()}</div>
+        ` : `
+          <div class="page-header">
+            <h2 class="page-title">Rows</h2>
+            <span class="page-count" id="rowCount"></span>
+            <div class="spacer"></div>
+            ${canCreateInCurrentWorkspace() ? '<button class="btn primary" id="newBtn">+ New row</button>' : ''}
+          </div>
+          ${isTrackOwner() ? `
+            <div class="page-ws">
+              <button class="ws-tab${state.workspace === 'all' ? ' active' : ''}" id="wsAll">All Tracks</button>
+              <button class="ws-tab${state.workspace === 'my' ? ' active' : ''}" id="wsMy">My Track</button>
+            </div>` : ''}
+          <div class="controls">
+            <input id="searchInput" class="search" type="text" placeholder="Search…" value="${esc(state.search)}" />
+            <select id="fStatus" title="Filter by status">${optionTags(state.statuses, state.filters.status)}</select>
+            <select id="fTrack" title="Filter by track">${optionTags(state.tracks, state.filters.track)}</select>
+            <select id="fType" title="Filter by type">${optionTags(state.types, state.filters.type, (t) => TYPE_LABEL[t] || t)}</select>
+          </div>
+          <div class="wrap">
+            <div class="table-scroll" id="tableScroll"></div>
+          </div>
+        `}
       </div>
-    ` : isImportPage ? `
-      <div class="wrap">${renderImportPanel()}</div>
-    ` : isDashPage ? `
-      <div class="wrap">${renderDashboard()}</div>
-    ` : `
-      <div class="controls">
-        <input id="searchInput" class="search" type="text" placeholder="Search…" value="${esc(state.search)}" />
-        <select id="fStatus" title="Filter by status">${optionTags(state.statuses, state.filters.status)}</select>
-        <select id="fTrack" title="Filter by track">${optionTags(state.tracks, state.filters.track)}</select>
-        <select id="fType" title="Filter by type">${optionTags(state.types, state.filters.type, (t) => TYPE_LABEL[t] || t)}</select>
-      </div>
-      <div class="wrap">
-        <div class="table-scroll" id="tableScroll"></div>
-      </div>
-    `}`;
+    </div>`;
 
+  document.getElementById('navToggle').onclick = () => {
+    state.navCollapsed = !state.navCollapsed;
+    localStorage.setItem('astraX.navCollapsed', state.navCollapsed);
+    renderApp();
+  };
   const newBtnEl = document.getElementById('newBtn');
   if (newBtnEl) newBtnEl.onclick = () => openForm(null);
   document.getElementById('logoutBtn').onclick = async () => {
     await api('/logout', { method: 'POST' }); state.user = null; renderLogin();
   };
-  document.getElementById('rowsPageBtn').onclick = () => { state.page = 'rows'; renderApp(); };
-  document.getElementById('dashPageBtn').onclick = async () => { state.page = 'dashboard'; await loadRows(); renderApp(); };
+  document.getElementById('navRows').onclick = () => { state.page = 'rows'; renderApp(); };
+  document.getElementById('navDash').onclick = async () => { state.page = 'dashboard'; await loadRows(); renderApp(); };
   if (isTrackOwner() && (isRowsPage || isDashPage)) {
     document.getElementById('wsAll').onclick = () => { state.workspace = 'all'; renderApp(); };
     document.getElementById('wsMy').onclick  = () => { state.workspace = 'my';  renderApp(); };
   }
   if (isAdmin()) {
-    document.getElementById('usersPageBtn').onclick = async () => {
+    document.getElementById('navUsers').onclick = async () => {
       if (state.page === 'users') { state.page = 'rows'; renderApp(); return; }
       state.page = 'users';
       await loadUsers();
       renderApp();
     };
-    document.getElementById('importPageBtn').onclick = () => {
+    document.getElementById('navImport').onclick = () => {
       if (state.page === 'import') { state.page = 'rows'; renderApp(); return; }
       state.page = 'import';
       state.importPreview = null;

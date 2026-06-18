@@ -6,6 +6,45 @@ control-plane bootstrap (pre-Context).
 
 ---
 
+## 2026-06-18 — consistent-long-cell-rendering
+
+**Capability:** Consistent Long Cell Rendering  
+**Feature slug:** consistent-long-cell-rendering  
+**Branch:** feat/left-nav-rail-layout  
+**State:** RELEASE_APPROVED  
+**Recon:** ai/recon/consistent-long-cell-rendering-recon.md  
+**Spec:** specs/consistent-long-cell-rendering.md  
+
+**Root cause:** `TRUNC_COLS` at `app/public/app.js:42` only listed 4 of 8 long-text-capable columns. The missing columns (`title`, `parent_item`, `dependencies`, `next_action`) rendered as plain `<td>` with `white-space:nowrap` and no `max-width`, causing unconstrained horizontal expansion. The `Dependencies` field was the most visible offender with 92-char values in production rows.
+
+**Fix:** One-line change — extended `TRUNC_COLS` to include all 8 long-text fields. Existing CSS rules (`td.trunc`, `td.trunc.has-toggle`, `.cell-text`, `.cell-toggle`, `.expanded`) already covered the new fields correctly. No CSS, backend, or event handling changes required.
+
+**Tasks executed:**
+- 001 recon — Inspected app.js + style.css, identified root cause
+- 002 spec — Locked spec with field coverage, contract, and non-scope
+- 003 implementation — Extended TRUNC_COLS (app/public/app.js:42)
+- 004 CSS audit — Confirmed no CSS changes needed
+- 005 event audit — Confirmed stopPropagation + row-click guard unaffected
+- 006 verification — Syntax check, server boot, rendering simulation, live app.js serve check
+- 007 state/journal — Updated state registry, appended journal
+
+**Files modified:**
+- `app/public/app.js` — TRUNC_COLS extended with 4 additional long-text field keys
+- `ai/recon/consistent-long-cell-rendering-recon.md` — created
+- `specs/consistent-long-cell-rendering.md` — created
+- `tasks/consistent-long-cell-rendering-001..007.md` — created
+- `ai/state_registry.json` — RELEASE_APPROVED entry added
+- `ai/engineering-journal.md` — this entry
+
+**Verification:**
+- `node --check app/public/app.js` → SYNTAX OK
+- Rendering simulation: `dependencies` (92 chars) now renders `td.trunc.has-toggle` with bounded preview + More; previously rendered as unbounded plain `<td>`
+- All 8 long-text fields confirmed in TRUNC_COLS; 6 short-value fields confirmed excluded
+- Live server confirms updated app.js is served correctly
+- 64 production rows in local DB; 3 rows with long `dependencies` (92 chars each) will now correctly truncate
+
+---
+
 ## 2026-06-10 — promote-execution-table-v1-scaffold
 
 **Capability:** Promote Execution Table Prototype To V1 App Scaffold  
@@ -2748,6 +2787,41 @@ specs/guard-demo-entries-seed-prod-mysql.md
 ### Implementation Notes
 
 Executed by execution-supervisor.sh at 2026-06-18T12:38:42Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+left-nav-rail-layout
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/left-nav-rail-layout.md
+
+### Tasks
+
+
+- tasks/left-nav-rail-layout-001.md [frontend]
+- tasks/left-nav-rail-layout-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T13:59:18Z.
 All 2 tasks completed. Verification passed.
 
 ### Pattern Updates
