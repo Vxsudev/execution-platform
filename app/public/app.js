@@ -93,14 +93,12 @@ function renderLogin(errMsg) {
     <div class="login-wrap">
       <div class="login-card">
         <h1>astraX — Team Experiment Summary</h1>
-        <p>Sign in to view and edit rows.</p>
         <label>Username</label>
         <input id="u" autocomplete="username" />
         <label>Password</label>
         <input id="p" type="password" autocomplete="current-password" />
         <button id="loginBtn">Sign in</button>
         <div class="error" id="loginErr">${errMsg ? esc(errMsg) : ''}</div>
-        <div class="hint">Demo: admin / admin123</div>
       </div>
     </div>`;
   const submit = async () => {
