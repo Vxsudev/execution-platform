@@ -8,6 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
+// MySQL-first backend selection: MySQL when MYSQL_URL or MYSQLHOST is present (production),
+// SQLite as a local/dev fallback only. The old top-level DatabaseSync(configuredDbPath)
+// startup block + DB_PATH diagnostic logs from main are intentionally dropped — DB open now
+// happens per-backend inside buildSqliteBackend()/buildMysqlBackend(), gated by useMysql.
 const useMysql = Boolean(
   (process.env.MYSQL_URL && process.env.MYSQL_URL.trim()) ||
   (process.env.MYSQLHOST && process.env.MYSQLHOST.trim())
@@ -191,6 +195,16 @@ function buildSqliteBackend() {
   const configuredDbPath = process.env.DB_PATH && process.env.DB_PATH.trim()
     ? process.env.DB_PATH.trim()
     : defaultDbPath;
+  // Volume-guard intent carried over from the railway DB-persistence recon: in production
+  // the DB must be MySQL. Reaching the SQLite fallback in production means MySQL env is
+  // absent; if that fallback would also target the Railway volume path (/data/...), refuse
+  // rather than silently create an ephemeral SQLite DB on non-persistent storage. (No
+  // Railway volume check is performed when MySQL is selected — this branch only runs when
+  // useMysql is false.)
+  if (process.env.NODE_ENV === 'production' && configuredDbPath.startsWith('/data/')) {
+    console.error('FATAL: production has no MySQL env (MYSQL_URL/MYSQLHOST) and DB_PATH points to /data/. Refusing to create an ephemeral SQLite database. Configure the Railway MySQL service.');
+    process.exit(1);
+  }
   fs.mkdirSync(path.dirname(configuredDbPath), { recursive: true });
   const db = new DatabaseSync(configuredDbPath);
   try {
