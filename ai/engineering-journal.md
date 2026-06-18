@@ -2621,3 +2621,104 @@ Railway redeploy smoke — confirm clicked-cell field highlight on the live depl
 In-session worker. Backend task (001) was a confirmation no-op (cell→field mapping is
 client-derivable from the existing schema). Supervisor enforced invariant gates and wrote the
 canonical journal entry.
+
+---
+
+## mysql-persistence-migration — 2026-06-18T09:20:18Z
+
+**State:** RECON_READY → SPEC_LOCKED → TASK_GRAPH_LOCKED → EXECUTION_ACTIVE → VERIFICATION_REQUIRED → RELEASE_APPROVED
+**Branch:** feat/mysql-persistence-migration (from `main`)
+**HEAD at recon:** 2516932
+
+### Directive
+
+Abandon Railway volume-backed SQLite (volume attach repeatedly fails/loops/resets); a Railway MySQL
+service now exists. Controlled backend persistence migration from synchronous `node:sqlite` to MySQL,
+preserving all behavior. No deploy; no Railway resource mutation; no production data import.
+
+### Implementation
+
+- **`app/db.js`** rewritten as a dual-backend **async adapter** `dba` (`get/all/run/tx/exec/init/
+  isUniqueViolation/nowStamp`). Backend auto-selected: MySQL (`mysql2/promise` pool) when `MYSQL_URL`/
+  `MYSQLHOST` present, else SQLite (`node:sqlite`) for local dev. Result shape normalized to
+  `{ insertId, changes }`. Pool uses `dateStrings: true` so DATETIME returns `'YYYY-MM-DD HH:MM:SS'`
+  (matches SQLite). Per-dialect DDL (5 tables) executed statement-by-statement; MySQL uses VARCHAR +
+  app-level validation (no ENUM/CHECK); `username`/`sessions.token` are `utf8mb4_bin` for byte-exact
+  uniqueness parity with SQLite; `raw_data` is MEDIUMTEXT. Bootstrap/seed/backfill ported unchanged.
+- **`app/server.js`** every handler that touches the DB is now `async` + `wrap()`ed (Express-4 async
+  error forwarding) with a catch-all error middleware. All `db.prepare().get/all/run` → `await
+  dba.*`; `lastInsertRowid`→`insertId`; `.changes` via adapter; the one `datetime('now')` UPDATE
+  literal → JS `dba.nowStamp()` bound param; batch delete wrapped in `dba.tx()`; duplicate-username
+  detection via `dba.isUniqueViolation()`. Boot awaits `dba.init()` before `app.listen`. Safe-log
+  policy: provider/host-present/db-present/connection-established only; init failure logs `err.code`.
+- **`app/package.json`** adds `mysql2@^3.11.0` (installed 3.22.5). No ORM.
+- **Docs:** `app/.env.example` + `app/README.md` document the MySQL contract, retire `DB_PATH` from
+  production, and describe the dual-backend provider.
+
+### Verification — disposable `mysql:8` container + SQLite (31/31 PASS)
+
+| Smoke | Result |
+|-------|--------|
+| `node --check` db.js/server.js; `npm install` | PASS |
+| Boot on MySQL; provider/connection logged | PASS |
+| Schema idempotent across restart | PASS |
+| Bootstrap creates admin on empty DB; restart skips (admin exists) | PASS |
+| Login; create user; create row; edit row (updated_by + `YYYY-MM-DD HH:MM:SS`) | PASS |
+| Import preview (read-only); commit inserts all previewed importable rows | PASS |
+| Import history count; batch delete (entries + observations, transactional) | PASS |
+| Manual row survives batch delete; data persists across restart | PASS |
+| Admin password not overwritten on restart | PASS |
+| No secrets / no full URL / no `/data/data.db` in logs | PASS |
+| SQLite async parity (dev login + create row) | PASS |
+
+### Workbook fixture correction + 64-row verification (2026-06-18, post-review)
+
+The initial smoke used the older `source-materials/workbooks/astraX-june-to-nov-experiment-all-tracking.xlsx`
+(62 matrix rows → **19** importable), which the operator flagged as a blocker. Root-caused to a **wrong
+verification fixture (hypotheses #1/#5)** — NOT a migration regression. Re-verified against the operator's
+current workbook `~/Downloads/astraX_JuneToNov_Experiment_All_Tracking (1).xlsx` (79 matrix rows). Both
+files have the same sheet (`All Experiment Summary`), same header row (row 4), and same 13 mapped columns,
+and run through the identical parser — confirming the parser/adapter were never the cause (preview is
+pre-DB and already equalled commit). Hypotheses #2 (old parser), #3 (adapter mismatch), #4 (header/range)
+ruled out.
+
+| 64-row MySQL check (fresh `smoke64` DB) | Result |
+|------------------------------------------|--------|
+| preview sheet = `All Experiment Summary` | PASS |
+| preview importable_rows === 64 | PASS |
+| blank-title-with-data imports as `Untitled` (1 row) | PASS |
+| fully-blank rows ignored (79 matrix → 64 importable) | PASS |
+| preview count === commit count === 64 | PASS |
+| MySQL commit inserted all 64 | PASS |
+| import history importable_rows === 64 | PASS |
+| batch delete removed all 64; history empty | PASS |
+
+13/13 PASS. The dual-backend migration previews, commits, and batch-deletes all 64 rows on MySQL. The
+`source-materials` fixture is stale relative to the operator's current workbook; the migration code is
+correct.
+
+### Preserved (unchanged)
+
+Login/session HMAC-cookie flow, row CRUD, import preview/commit/dedup/history/observations, batch-
+delete legacy-orphan recovery, access model, admin bootstrap semantics, password policy, frontend/UX.
+Disposable DBs only; live `app/data.db` untouched; no Railway mutation; no deploy.
+
+### Railway env-variable change summary (for operator — NOT applied)
+
+- **Add** `MYSQL_URL` (or reference the MySQL service's `MYSQLHOST/PORT/USER/PASSWORD/DATABASE`).
+- **Keep** `SESSION_SECRET` (32+), `NODE_ENV=production`, `PORT` (injected).
+- **Keep** `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD` for first boot, then remove
+  `BOOTSTRAP_ADMIN_PASSWORD`.
+- **Remove/ignore** `DB_PATH` in production (volume no longer used).
+
+### Open decision / risks
+
+- Dual-backend retained (low-risk rollback). Operator may later drop SQLite for MySQL-only once
+  Railway MySQL is proven. Default: keep dual.
+- MySQL username uniqueness made byte-exact via `utf8mb4_bin` to match SQLite (otherwise default
+  collation would be case-insensitive).
+
+### Next Recommended Node
+
+Railway MySQL deploy smoke — set MySQL env on the service, deploy, verify bootstrap + a row surviving
+a redeploy against the managed MySQL.
