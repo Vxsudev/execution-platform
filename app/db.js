@@ -376,18 +376,20 @@ async function init() {
   }
 
   // Seed generic illustrative rows to show row shape (not production data).
-  const e = await get('SELECT COUNT(*) c FROM entries');
-  if ((e ? e.c : 0) === 0) {
-    await run(
-      `INSERT INTO entries (type,title,owner,track,function_area,hypothesis,success_criteria,status)
-       VALUES (?,?,?,?,?,?,?,?)`,
-      'experiment', 'Sample experiment', 'demo', 'T1 AstraX Device', 'Engineering',
-      'If we do X then Y because Z.', 'Baseline metric improves', 'Not Started');
-    await run(
-      `INSERT INTO entries (type,title,owner,track,function_area,hypothesis,success_criteria,status)
-       VALUES (?,?,?,?,?,?,?,?)`,
-      'work_item', 'Sample work item', 'demo', 'T2 AstraX Customer Cloud', 'Software',
-      null, null, 'In Progress');
+  if (process.env.NODE_ENV !== 'production') {
+    const e = await get('SELECT COUNT(*) c FROM entries');
+    if ((e ? e.c : 0) === 0) {
+      await run(
+        `INSERT INTO entries (type,title,owner,track,function_area,hypothesis,success_criteria,status)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        'experiment', 'Sample experiment', 'demo', 'T1 AstraX Device', 'Engineering',
+        'If we do X then Y because Z.', 'Baseline metric improves', 'Not Started');
+      await run(
+        `INSERT INTO entries (type,title,owner,track,function_area,hypothesis,success_criteria,status)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        'work_item', 'Sample work item', 'demo', 'T2 AstraX Customer Cloud', 'Software',
+        null, null, 'In Progress');
+    }
   }
 
   // Backfill audit columns for any rows without stamps (including seed rows on fresh installs).

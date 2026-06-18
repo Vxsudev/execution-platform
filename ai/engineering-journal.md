@@ -2722,3 +2722,38 @@ Disposable DBs only; live `app/data.db` untouched; no Railway mutation; no deplo
 
 Railway MySQL deploy smoke — set MySQL env on the service, deploy, verify bootstrap + a row surviving
 a redeploy against the managed MySQL.
+
+---
+
+### 2026-06-18
+
+### Feature
+
+guard-demo-entries-seed-prod-mysql
+
+### Phase
+
+phase-build
+
+### Spec
+
+specs/guard-demo-entries-seed-prod-mysql.md
+
+### Tasks
+
+
+- tasks/guard-demo-entries-seed-prod-mysql-001.md [backend]
+- tasks/guard-demo-entries-seed-prod-mysql-002.md [verification]
+
+### Implementation Notes
+
+Executed by execution-supervisor.sh at 2026-06-18T12:38:42Z.
+All 2 tasks completed. Verification passed.
+
+### Pattern Updates
+
+None.
+
+### Incidents
+
+None.
